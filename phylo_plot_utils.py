@@ -36,7 +36,7 @@ def plot_phylop_scores(phylop_data, output_plot_file):
     plt.close()
 
 
-def color_tree(tree, subtree_name=None, values=None, cmap_name='viridis', output_file="out_tree.png"):
+def color_tree(tree, subtree_name=None, values=None, msa=None, cmap_name='viridis', output_file="out_tree.png"):
     """
     Generalized function to color a tree.
     - Either provide a subtree name to color that subtree.
@@ -47,6 +47,8 @@ def color_tree(tree, subtree_name=None, values=None, cmap_name='viridis', output
     - output_file: Path to save the output image.
     - subtree_name: Name of the internal node whose subtree will be colored.
     - values: A list or array of numerical values (one for each branch).
+    - msa: A Bio.Align.MultipleSeqAlignment object containing the alignment (optional).
+           If provided, it will be displayed with rows aligned to tree leaf nodes.
     - cmap_name: Name of the colormap to use for heatmap coloring.
     """
     # Prepare color map if using numerical values
@@ -130,67 +132,99 @@ def color_tree(tree, subtree_name=None, values=None, cmap_name='viridis', output
     plt.close()
 
 
-# Color a tree with subtree in different color
-def color_subtree(tree, internal_node_name, output_file):
-    # Function to color branches of a clade and its subclades
-    def color_clades(clade, color):
-        for subclade in clade.clades:
-            subclade.color = color  # Add color to each clade
-            color_clades(subclade, color)  # Recursive coloring
+def color_tree_with_msa(tree, values_vector, msa=None):
+    """
+    Draws a phylogenetic tree with colored branches according to `values_vector`
+    and displays a multiple sequence alignment (MSA) next to the tree if provided.
 
-    # Check if internal node exists in tree
-    found_clade = None
-    for clade in tree.find_clades():
-        if clade.name == internal_node_name:
-            found_clade = clade
-            break
+    Parameters:
+    - tree: A Bio.Phylo tree object to be drawn.
+    - values_vector: A list of color values corresponding to each branch in the tree.
+    - msa: A Bio.Align.MultipleSeqAlignment object containing the alignment (optional).
+           If provided, it will be displayed with rows aligned to tree leaf nodes.
+    """
+    # Create a color mapping for the branches based on `values_vector`
+    unique_values = sorted(set(values_vector))
+    colors = plt.cm.tab20(np.linspace(0, 1, len(unique_values)))
+    color_map = {value: colors[i] for i, value in enumerate(unique_values)}
 
-    if found_clade is None:
-        raise ValueError(f"Internal node {internal_node_name} not found in the tree.")
+    # Draw the phylogenetic tree
+    fig, ax_tree = plt.subplots(figsize=(10, 6))
+    ax_tree.set_title("Phylogenetic Tree with Colored Branches")
 
-    # Color the entire tree (default color)
-    for clade in tree.get_terminals() + tree.get_nonterminals():
-        clade.color = 'black'  # Set the default color to black for all nodes
-
-    # Color the subtree of the found internal node
-    color_clades(found_clade, 'red')  # Color the subtree in red
-
-    # Custom label function to return the name for terminal nodes, and set leaf color
-    def leaf_labels(clade):
-        if clade.is_terminal():
-            # Return the clade's name if terminal (leaf) and adjust color accordingly
-            return clade.name
-        return None
-
-    # Drawing the tree with label_func and color adjustments
-    fig = plt.figure(figsize=(10, 10))
-    axes = fig.add_subplot(1, 1, 1)
+    # Assign colors to branches
+    for clade, color_value in zip(tree.find_clades(), values_vector):
+        clade.color = color_map[color_value]
 
     # Draw the tree
-    Phylo.draw(tree, axes=axes, label_func=leaf_labels, do_show=False)
+    Phylo.draw(tree, axes=ax_tree, branch_labels=None, do_show=False)
 
-    # Now adjust the text colors of the leaves after drawing
-    for text in axes.texts:  # axes.texts contains all the text objects
-        leaf_name = text.get_text()
-     #   print("text: ", text, " leaf: ", leaf_name)
-     #   print("Terminals: ")
-     #   print(tree.get_terminals())
-        for clade in tree.get_terminals():
-     #       print("clade name: ", clade, " ; ", clade.name, " ; leaf_name: ", leaf_name, "..", leaf_name[1:], " equal ? ", \
-     #             clade.name == leaf_name[1:], " lens: ", len(str(clade)), len(clade.name), " ; ", len(leaf_name))
+    # If an MSA is provided, draw it alongside the tree
+    if msa:
+        # Collect leaf names in the order they appear in the tree drawing
+        leaves = tree.get_terminals()
+        leaf_names = [leaf.name for leaf in leaves]
 
-            if clade.name == leaf_name.strip():
-      #          print("IF: Setting color: ", leaf_name , ", " , clade.color, type(clade.color))
-                # Set the color of the text based on the clade's assigned color
-                if isinstance(clade.color, str):
-                    text.set_color(clade.color)
-                else:
-    #                print("Tuple: ", tuple(clade.color))
-    #                norm_color = [x/256 for x in tuple(clade.color)]
-                    text.set_color((clade.color.red / 255, clade.color.green / 255, clade.color.blue / 255))
+        # Create a dictionary mapping leaf names to their MSA sequences
+        msa_dict = {record.id: str(record.seq) for record in msa}
+
+        # Create an alignment matrix to display the sequences alongside the tree
+        msa_matrix = [list(msa_dict[leaf_name]) if leaf_name in msa_dict else [''] * msa.get_alignment_length() for
+                      leaf_name in leaf_names]
+
+        # Convert MSA matrix to numpy for easier display
+        msa_array = np.array(msa_matrix)
+
+        # Create a new axes for the MSA display
+        ax_msa = fig.add_axes([0.8, 0.1, 0.15, 0.8])  # Adjust position and size as needed
+        ax_msa.set_title("MSA")
+
+        # Display the MSA matrix as an image
+        # Color mapping for nucleotides or amino acids
+        msa_cmap = plt.cm.Pastel1
+        ax_msa.imshow(msa_array == 'A', cmap=msa_cmap, aspect='auto',
+                      interpolation='none')  # Example with 'A'; update to generalize
+
+        # Adjust the axis
+        ax_msa.set_xticks(range(msa.get_alignment_length()))
+        ax_msa.set_yticks(range(len(leaf_names)))
+        ax_msa.set_yticklabels(leaf_names, fontsize=8)
+        ax_msa.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)
+
+    plt.show()
 
 
+def subtrees_to_color_vector(tree, subtrees):
+    """
+    Creates a color vector for branches in `tree` based on a list of `subtrees`.
 
-    # Save the plot to a file
-    plt.savefig(output_file)
-    plt.close()
+    Parameters:
+    - tree: A Bio.Phylo tree object containing all species.
+    - subtrees: A list of Bio.Phylo tree objects, each representing a non-overlapping subtree of `tree`.
+
+    Returns:
+    - A list where each integer represents a color code for a clade:
+      0 for branches not in any subtree, 1 for the first subtree, 2 for the second, etc.
+    """
+    # Initialize dictionary to hold color codes for each clade in the tree
+    values_dict = {}
+
+    # Assign unique color to each subtree in the input list
+    for color_index, subtree in enumerate(subtrees, start=1):
+        subtree_species = {leaf.name for leaf in subtree.get_terminals()}
+
+        for clade in tree.find_clades():
+            # Assign the color only if the clade is a terminal node and in the current subtree
+            if clade.is_terminal() and clade.name in subtree_species:
+                values_dict[clade] = color_index
+
+    # Assign color 0 to all branches not part of any subtree
+    for clade in tree.find_clades():
+        if clade not in values_dict:
+            values_dict[clade] = 0
+
+    # Convert values_dict to a list vector for the color_tree function
+    values_vector = [values_dict[clade] for clade in tree.find_clades()]
+
+    return values_vector
+

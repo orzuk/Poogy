@@ -27,8 +27,6 @@ elif platform == "win32" or platform == "win64":
 
 
 
-
-
 # Set main data directory:
 data_dir = g_dir + "Data/hg38_470Vert"
 tree_file = data_dir + "/phylop30/hg38.phyloP30way_named.mod"
@@ -63,7 +61,6 @@ if plot_trees:
 
     # Example usage:
     # tree = Phylo.read("your_tree_file.newick", "newick")
-    # color_subtree(tree, "hg38-calJac3", data_dir + "/output/trees/output_tree_hg38-calJac3_subtree.png")
 
     print("Color trees:")
     color_tree(tree, subtree_name="hg38-calJac3", output_file=data_dir + "/output/trees/output_tree_hg38-calJac3_subtree.png")
@@ -117,5 +114,6 @@ if run_phylop_recursive:
     print(phylop_data[0:10])
 
     print("Find best rate split!!!")
-    best_subtree, best_score = find_best_rate_split_in_tree(pruned_tree_file, msa_file, output_dir + "/phylop", method="greedy")
+#    best_subtree, best_score = find_best_rate_split_in_tree(pruned_tree_file, msa_file, output_dir + "/phylop", method="greedy")
+    best_subtree, best_score = fit_tree_rates(pruned_tree_file, msa_file, output_dir + "/phylop/chr22_GL383583v2_alt_split_tree.out", plot_tree=True)
     print("Found best rate split: ", best_subtree, best_score)

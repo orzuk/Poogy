@@ -4,6 +4,9 @@ from Bio import Phylo
 from phylo_plot_utils import *
 import numpy as np
 import os
+import copy
+import importlib
+
 
 def split_tree_at_root(tree):
     # Get the children of the root
@@ -91,6 +94,65 @@ def prune_tree(tree, species_to_remove):
             tree.prune(clade_to_remove)
 
     return tree
+
+
+def get_induced_subtree(tree, root_name):
+    """
+    Returns the subtree of `tree` with `root_name` as the root.
+
+    Parameters:
+    - tree: A Bio.Phylo tree object containing all species.
+    - root_name: The name of the node to be used as the root of the induced subtree.
+
+    Returns:
+    - A new Bio.Phylo tree object representing the induced subtree with `root_name` as the root.
+    """
+    # Clone the original tree to avoid modifying it
+    subtree = copy.deepcopy(tree)
+
+    # Find the specified node in the tree
+    root_clade = subtree.find_any(name=root_name)
+    if root_clade is None:
+        raise ValueError(f"No clade with the name '{root_name}' found in the tree.")
+
+    # Trim the tree down to the specified root node and its descendants
+    subtree.root = root_clade
+    subtree.rooted = True
+
+    # Detach all nodes above the specified root to make it the new root
+    subtree.collapse_all(lambda clade: clade is not root_clade)
+
+    return subtree
+
+
+def get_complementary_tree(tree, sub_tree):
+    """
+    Returns the complementary tree of `tree` by removing all species in `sub_tree`.
+
+    Parameters:
+    - tree: A Bio.Phylo tree object containing all species.
+    - sub_tree: A Bio.Phylo tree object containing a subset of species in `tree`.
+
+    Returns:
+    - A new tree object representing the complementary tree.
+    """
+    if isinstance(sub_tree, str):
+        sub_tree = get_induced_subtree(tree, sub_tree)
+    print("sub_tree is: ", sub_tree)
+    print("terminals are: ", sub_tree.get_terminals())
+    # Get the names of all species (terminal nodes) in sub_tree
+    sub_tree_species = {leaf.name for leaf in sub_tree.get_terminals()}
+
+    # Clone the original tree to avoid modifying it directly
+    complementary_tree = copy.deepcopy(tree)
+
+    # Prune each species in sub_tree from complementary_tree
+    for species in sub_tree_species:
+        clade_to_remove = complementary_tree.find_any(name=species)
+        if clade_to_remove:
+            complementary_tree.prune(clade_to_remove)
+
+    return complementary_tree
 
 
 def read_phylop_output_fixed_step(output_file, plot_flag=False):
@@ -230,15 +292,25 @@ def run_phylop_linux(tree_file, msa_file, output_file, sub_tree="", method="SCOR
 
 
 # New: split tree recursively and output subtree with different rates !
-def fit_tree_rates(tree_file, msa_file, output_file, fdr_alpha = 0.1, sub_tree="", method="SCORE", mode="CONACC"):
+def fit_tree_rates(tree_file, msa_file, output_file, fdr_alpha = 0.1,  method="SCORE", mode="CONACC", plot_tree=False):
     tree = Phylo.read(tree_file, "newick")
     root = tree.root
     children = root.clades  # Get the two child clades (subtrees)
-    phylop_scores = run_phylop_linux(tree_file, msa_file, output_file, sub_tree=children[0], method="SCORE", mode="CONACC", read_output=True)
+#    phylop_scores = run_phylop_linux(tree_file, msa_file, output_file, sub_tree=children[0], method="SCORE", mode="CONACC", read_output=True)
 
     # Decide if significant or not
     output_dir = os.path.dirname(output_file)
-    find_best_rate_split_in_tree(tree_file, msa_file, output_dir, "greedy")
+    best_subtree, best_score = find_best_rate_split_in_tree(tree_file, msa_file, output_dir, "greedy")
+    print("Best Subtree: ", best_subtree)
+    print(type(best_subtree))
+    print("Best score: ", best_score)
+    comp_best_tree = get_complementary_tree(tree, best_subtree) # Fit rates for the two trees
+    if plot_tree:
+        print("Plotting! Saving in: ", output_file.replace(".out", ".png"))
+        subtree_rates = subtrees_to_color_vector(tree, [get_induced_subtree(tree, best_subtree)])  # Compute rates and color
+        color_tree(tree, values=subtree_rates, cmap_name='viridis', output_file=output_file.replace(".out", ".png"))
+
+    return best_subtree, best_score
 
 
 # Split the tree such that the contrast in rate between the two halves is maximal.
@@ -276,6 +348,8 @@ def find_best_rate_split_in_tree(tree_file, msa_file, output_dir, method="binary
             if cur_score > best_score:
                 best_score = cur_score
                 best_subtree = subtree_name
+                print("Found better!!!")
+                print(best_subtree, best_score)
 
         return best_subtree, best_score
 
