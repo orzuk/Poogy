@@ -6,6 +6,7 @@ import numpy as np
 import os
 import copy
 import importlib
+from Bio import AlignIO
 
 
 def split_tree_at_root(tree):
@@ -53,20 +54,19 @@ def extract_and_prune_model(input_file, species_to_remove, output_file):
     if tree_line_index is None:
         raise ValueError("No TREE line found in the model file.")
 
-    # Extract the Newick tree (after "TREE: ")
-    newick_tree = lines[tree_line_index].strip().split("TREE:")[1].strip()
     # Step 2: Load the Newick tree into Biopython and prune the species
-
     tree = Phylo.read(input_file, "newick")
-#    tree = Phylo.read(newick_tree, "newick")
 
-    for species in species_to_remove:
-        clade_to_remove = tree.find_any(name=species)
-        if clade_to_remove:
-            tree.prune(clade_to_remove)
+    if not tree.rooted:
+        tree.root_with_outgroup(tree.root)
+    print("THIS IS GOOD??")
+    print(tree)
+    print(species_to_remove)
+    pruned_tree = prune_and_update_tree(tree, species_to_remove)
+
     # Step 3: Write the pruned tree back into the original model
     # Convert the pruned tree back to a Newick string
-    pruned_tree_newick = tree.format("newick").strip()
+    pruned_tree_newick = pruned_tree.format("newick").strip()
 
     # Replace the old tree line with the new pruned tree
     lines[tree_line_index] = f"TREE: {pruned_tree_newick}\n"
@@ -74,6 +74,56 @@ def extract_and_prune_model(input_file, species_to_remove, output_file):
     # Step 4: Write the updated model back to the output file
     with open(output_file, "w") as outfile:
         outfile.writelines(lines)
+
+
+def update_internal_node_names(tree):
+    """
+    Renames each internal node in the tree based on its current descendant leaf names.
+    """
+    tree_species = {leaf.name for leaf in tree.get_terminals()}
+    for clade in tree.get_nonterminals():
+        if clade.name is None or (not set(clade.name.split("-")).issubset(tree_species)):
+            # Generate a new name based on the current descendant leaf names
+            clade.name = "-".join(sorted(leaf.name for leaf in clade.get_terminals() if leaf.name))
+
+            # Now shorten to include ONLY two species:
+            # Get all child clades from the first split (direct children of the clade)
+            children = clade.clades
+
+            # Ensure there are at least two children for a meaningful split
+            if len(children) >= 2:
+                # Get one terminal name from each child clade in the first split
+                name1 = children[0].get_terminals()[0].name
+                name2 = children[1].get_terminals()[0].name
+
+                # Concatenate the two names as the new shortened name
+                clade.name = f"{name1}-{name2}"
+
+
+def prune_and_update_tree(tree, species_to_remove):
+    """
+    Prunes specified terminal nodes and updates internal node names accordingly.
+
+    Parameters:
+    - tree: A Bio.Phylo tree object to prune.
+    - species_to_remove: A list of terminal node names to remove from the tree.
+
+    Returns:
+    - A new tree with the specified terminals removed and updated internal node names.
+    """
+    # Create a deep copy of the tree to avoid modifying the original
+    pruned_tree = copy.deepcopy(tree)
+
+    # Prune each specified species
+    for species in species_to_remove:
+        clade_to_prune = pruned_tree.find_any(name=species)
+        if clade_to_prune and clade_to_prune.is_terminal():
+            pruned_tree.prune(clade_to_prune)
+
+    # Update internal node names based on remaining leaves
+    update_internal_node_names(pruned_tree)
+
+    return pruned_tree
 
 
 def prune_tree(tree, species_to_remove):
@@ -211,6 +261,7 @@ def read_phylop_output_fixed_step(output_file, plot_flag=False):
         plot_phylop_scores(phylop_scores, output_file.replace(".out", ".png"))
 
     return phylop_scores
+
 
 # Read output file into a list of  dictionaries
 def read_phylop_output(output_file, plot_flag = False):
@@ -353,4 +404,44 @@ def find_best_rate_split_in_tree(tree_file, msa_file, output_dir, method="binary
 
         return best_subtree, best_score
 
+
+def extract_subalignment(msa_file, start, end, output_file):
+    """
+    Extracts a sub-alignment from the given MSA file (in MAF format) between specified start and end positions.
+
+    Parameters:
+        msa_file (str): Path to the input MAF file.
+        start (int): Start position for the sub-alignment.
+        end (int): End position for the sub-alignment.
+        output_file (str): Path to save the sub-alignment MAF file.
+    """
+    with open(msa_file, "r") as input_handle, open(output_file, "w") as output_handle:
+        # Parse the MAF alignment file
+        alignment_blocks = AlignIO.parse(input_handle, "maf")
+        selected_blocks = []
+
+        for block in alignment_blocks:
+            # Check each sequence in the block
+            block_in_range = False
+            for record in block:
+                start_pos = record.annotations["start"]
+                end_pos = start_pos + record.annotations["size"]
+
+                # Adjust for reverse strand if necessary
+                if record.annotations["strand"] == -1:
+                    start_pos, end_pos = end_pos, start_pos
+
+                # Determine if block is within the specified range
+                if min(start, end) <= end_pos and max(start, end) >= start_pos: #  if not (end < start_pos or start > end_pos):
+                    block_in_range = True
+                    break
+
+            # If any sequence in the block overlaps the specified range, add the block
+            if block_in_range:
+                selected_blocks.append(block)
+
+        # Write selected blocks to the output file
+        AlignIO.write(selected_blocks, output_handle, "maf")
+    print(f"Sub-alignment saved to {output_file}")
+    return selected_blocks
 
