@@ -36,7 +36,7 @@ def plot_phylop_scores(phylop_data, output_plot_file):
     plt.close()
 
 
-def color_tree(tree, subtree_name=None, values=None, msa=None, cmap_name='viridis', output_file="out_tree.png"):
+def color_tree(tree, subtree_name=None, values=None, msa=None, cmap_name='coolwarm', output_file="out_tree.png"):
     """
     Generalized function to color a tree.
     - Either provide a subtree name to color that subtree.
@@ -81,14 +81,30 @@ def color_tree(tree, subtree_name=None, values=None, msa=None, cmap_name='viridi
 
     # Case 2: Color by numerical values (like a heatmap)
     elif values is not None:
+        values_list = list(values.values())
+
+        # Normalize and get the colormap
+        norm = colors.Normalize(vmin=np.min(values_list), vmax=np.max(values_list))
+        cmap = plt.get_cmap(cmap_name)
+
+        values_dict_simple = {k.name: values[k] for k in values.keys()}
+        # Map each clade to its color based on the normalized values
+        for clade in tree.get_nonterminals() + tree.get_terminals():
+            if clade.name in values_dict_simple:
+                color_value = norm(values_dict_simple[clade.name])
+                branch_color = cmap(color_value)
+                # Assign color to clade
+                clade.color = colors.rgb2hex(branch_color)
+
+
         # Normalize the values to [0,1] for the color map
-        norm = colors.Normalize(vmin=np.min(values), vmax=np.max(values))
-        branch_colors = cmap(norm(values))
+#        norm = colors.Normalize(vmin=np.min(values), vmax=np.max(values))
+#        branch_colors = cmap(norm(values))
 
         # Assign colors to each branch based on the values
-        for clade, branch_color in zip(tree.get_nonterminals() + tree.get_terminals(), branch_colors):
-            # Convert the RGB tuple (from colormap) to a hex string for matplotlib
-            clade.color = colors.rgb2hex(branch_color)
+#        for clade, branch_color in zip(tree.get_nonterminals() + tree.get_terminals(), branch_colors):
+#            # Convert the RGB tuple (from colormap) to a hex string for matplotlib
+#            clade.color = colors.rgb2hex(branch_color)
 
     else:
         raise ValueError("Either subtree_name or values must be provided.")
@@ -224,7 +240,7 @@ def subtrees_to_color_vector(tree, subtrees):
             values_dict[clade] = 0
 
     # Convert values_dict to a list vector for the color_tree function
-    values_vector = [values_dict[clade] for clade in tree.find_clades()]
+#    values_vector = [values_dict[clade] for clade in tree.find_clades()]
 
-    return values_vector
+    return values_dict  # values_vector
 

@@ -308,7 +308,7 @@ def fit_tree_rates(tree_file, msa_file, output_file, fdr_alpha = 0.1,  method="S
     if plot_tree:
         print("Plotting! Saving in: ", output_file.replace(".out", ".png"))
         subtree_rates = subtrees_to_color_vector(tree, [get_induced_subtree(tree, best_subtree)])  # Compute rates and color
-        color_tree(tree, values=subtree_rates, cmap_name='viridis', output_file=output_file.replace(".out", ".png"))
+        color_tree(tree, values=subtree_rates, cmap_name='coolwarm', output_file=output_file.replace(".out", ".png"))
 
     return best_subtree, best_score
 
