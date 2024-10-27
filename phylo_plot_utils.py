@@ -143,15 +143,20 @@ def color_tree(tree, subtree_name=None, values=None, msa=None, cmap_name='coolwa
                     text.set_color((clade.color.red / 255, clade.color.green / 255, clade.color.blue / 255))
 
     if msa:
+        print("Adding MSA!!!")
         # Collect leaf names in the order they appear in the tree drawing
         leaves = tree.get_terminals()
         leaf_names = [leaf.name for leaf in leaves]
 
-        # Create a dictionary mapping leaf names to their MSA sequences
-        msa_dict = {record.id: str(record.seq) for record in msa}
+        if isinstance(msa, list): # multiple blocks !!! take first !!
+            use_msa = msa[0]
+        else:
+            use_msa = msa
+        # Create a dictionary mapping leaf names to their MSA sequences (MSA can come in blocks!!!)
+        msa_dict = {record.id: str(record.seq) for record in use_msa}
 
         # Create an alignment matrix to display the sequences alongside the tree
-        msa_matrix = [list(msa_dict[leaf_name]) if leaf_name in msa_dict else [''] * msa.get_alignment_length() for
+        msa_matrix = [list(msa_dict[leaf_name]) if leaf_name in msa_dict else [''] * use_msa.get_alignment_length() for
                       leaf_name in leaf_names]
 
         # Convert MSA matrix to numpy for easier display
@@ -168,7 +173,7 @@ def color_tree(tree, subtree_name=None, values=None, msa=None, cmap_name='coolwa
                       interpolation='none')  # Example with 'A'; update to generalize
 
         # Adjust the axis
-        ax_msa.set_xticks(range(msa.get_alignment_length()))
+        ax_msa.set_xticks(range(use_msa.get_alignment_length()))
         ax_msa.set_yticks(range(len(leaf_names)))
         ax_msa.set_yticklabels(leaf_names, fontsize=8)
         ax_msa.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)

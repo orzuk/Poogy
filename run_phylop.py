@@ -7,15 +7,24 @@ from Bio import AlignIO
 import numpy as np
 from matplotlib import cm, colors
 from phylo_utils import *
+from phylo_plot_utils import *
 from sys import platform
 
 # Operations to do:
+reload_modules = False
 plot_trees = False
 prune_tree_by_msa_species = False
 run_phylop = False
 run_phylop_recursive = False
 parse_msa = True
 alignment = "multiz470" # "multiz470"  # multiz30
+
+
+if reload_modules:
+    importlib.reload(phylo_utils)
+    importlib.reload(phylo_plot_utils)
+    from phylo_utils import *
+    from phylo_plot_utils import *
 
 
 # Figure out operating system
@@ -83,8 +92,9 @@ if plot_trees:
     color_tree(pruned_tree, subtree_name="hg38-calJac3", output_file=data_dir + "/output/trees/output_pruned_tree_hg38-calJac3_subtree.png")
     color_tree(pruned_tree, subtree_name="hg38-rheMac8", output_file=data_dir + "/output/trees/output_pruned_tree_hg38-rheMac8_subtree.png")
 
-    values = np.random.random(len(tree.get_terminals()) + len(tree.get_nonterminals()))
-    color_tree(tree, values=values, output_file=data_dir + "/output/trees/output_tree_hg38_randcolors.png")
+    values_dict = dict(zip(tree.get_terminals() + tree.get_nonterminals(),
+                           np.random.random(len(tree.get_terminals()) + len(tree.get_nonterminals()))))
+    color_tree(tree, values=values_dict, output_file=data_dir + "/output/trees/output_tree_hg38_randcolors.png")
 
 
 if run_phylop:
@@ -151,7 +161,9 @@ if parse_msa:
     msa_output_file = msa_file[:-4] + "_pos_" + str(start_pos) + "_" + str(end_pos) + ".maf"
     msa_selected_blocks = extract_subalignment(msa_file, start_pos, end_pos, msa_output_file)
 
+    values_dict = dict(zip(tree.get_terminals() + tree.get_nonterminals(),
+            np.random.random(len(tree.get_terminals()) + len(tree.get_nonterminals()))))
     # Now color tree with alignment !!!
-    values = np.random.random(len(tree.get_terminals()) + len(tree.get_nonterminals()))
-    color_tree(tree, msa_selected_blocks, values=values,
+
+    color_tree(tree, msa=msa_selected_blocks, values=values_dict,
                output_file=data_dir + "/output/trees/output_tree_with_msa.png")
