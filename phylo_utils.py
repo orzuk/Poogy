@@ -6,7 +6,7 @@ import numpy as np
 import os
 import copy
 import importlib
-from Bio import AlignIO
+from Bio import AlignIO, Phylo
 
 
 def split_tree_at_root(tree):
@@ -404,44 +404,4 @@ def find_best_rate_split_in_tree(tree_file, msa_file, output_dir, method="binary
 
         return best_subtree, best_score
 
-
-def extract_subalignment(msa_file, start, end, output_file):
-    """
-    Extracts a sub-alignment from the given MSA file (in MAF format) between specified start and end positions.
-
-    Parameters:
-        msa_file (str): Path to the input MAF file.
-        start (int): Start position for the sub-alignment.
-        end (int): End position for the sub-alignment.
-        output_file (str): Path to save the sub-alignment MAF file.
-    """
-    with open(msa_file, "r") as input_handle, open(output_file, "w") as output_handle:
-        # Parse the MAF alignment file
-        alignment_blocks = AlignIO.parse(input_handle, "maf")
-        selected_blocks = []
-
-        for block in alignment_blocks:
-            # Check each sequence in the block
-            block_in_range = False
-            for record in block:
-                start_pos = record.annotations["start"]
-                end_pos = start_pos + record.annotations["size"]
-
-                # Adjust for reverse strand if necessary
-                if record.annotations["strand"] == -1:
-                    start_pos, end_pos = end_pos, start_pos
-
-                # Determine if block is within the specified range
-                if min(start, end) <= end_pos and max(start, end) >= start_pos: #  if not (end < start_pos or start > end_pos):
-                    block_in_range = True
-                    break
-
-            # If any sequence in the block overlaps the specified range, add the block
-            if block_in_range:
-                selected_blocks.append(block)
-
-        # Write selected blocks to the output file
-        AlignIO.write(selected_blocks, output_handle, "maf")
-    print(f"Sub-alignment saved to {output_file}")
-    return selected_blocks
 

@@ -8,6 +8,7 @@ import numpy as np
 from matplotlib import cm, colors
 from phylo_utils import *
 from phylo_plot_utils import *
+from msa_utils import *
 from sys import platform
 
 # Operations to do:
@@ -22,9 +23,11 @@ alignment = "multiz470" # "multiz470"  # multiz30
 
 if reload_modules:
     importlib.reload(phylo_utils)
+    importlib.reload(msa_utils)
     importlib.reload(phylo_plot_utils)
     from phylo_utils import *
     from phylo_plot_utils import *
+    from msa_utils import *
 
 
 # Figure out operating system
@@ -45,13 +48,14 @@ data_dir = g_dir + "Data/hg38_470Vert"
 
 if alignment == "multiz470": # Run entire algorithm: determine the best tree division for acceleration and conservation for a segment
     tree_file = data_dir + "/phylop470/hg38.phyloP470way.mod"
-    msa_file = data_dir + "/multiz470/PAR_CHR8_5217000_5217500_one_block.maf"
+    msa_file = data_dir + "/multiz470/PAR_CHR8_5217000_5217500.maf"  # why one block?
     phylop_str = "phylop470"
     start_pos, end_pos = 5217100, 5217800
 else:
     tree_file = data_dir + "/phylop30/hg38.phyloP30way_named.mod"
     msa_file = data_dir + "/multiz30/chr22_GL383583v2_alt.maf"
     phylop_str = "phylop30"
+    start_pos, end_pos = None, None  # do not extract sub-alignment
 
 element_str = os.path.basename(msa_file)[:-4]
 output_dir = data_dir + "/output"
@@ -158,12 +162,15 @@ if run_phylop_recursive:
 
 
 if parse_msa:
+    tree30 = Phylo.read(data_dir + "/phylop30/hg38.phyloP30way_named.mod", "newick") # TEMP HARD CODED 30
     msa_output_file = msa_file[:-4] + "_pos_" + str(start_pos) + "_" + str(end_pos) + ".maf"
     msa_selected_blocks = extract_subalignment(msa_file, start_pos, end_pos, msa_output_file)
 
-    values_dict = dict(zip(tree.get_terminals() + tree.get_nonterminals(),
-            np.random.random(len(tree.get_terminals()) + len(tree.get_nonterminals()))))
+    values_dict = dict(zip(tree30.get_terminals() + tree30.get_nonterminals(),
+            np.random.random(len(tree30.get_terminals()) + len(tree30.get_nonterminals()))))
     # Now color tree with alignment !!!
 
-    color_tree(tree, msa=msa_selected_blocks, values=values_dict,
-               output_file=data_dir + "/output/trees/output_tree_with_msa.png")
+    color_tree(tree30, msa=msa_selected_blocks, values=values_dict,
+               output_file=data_dir + "/output/trees/output_tree_with_msa_new_filtered.png")
+    color_tree(tree30, values=values_dict,
+               output_file=data_dir + "/output/trees/output_tree_no_msa_new_filtered.png")
