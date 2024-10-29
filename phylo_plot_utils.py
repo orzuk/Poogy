@@ -3,6 +3,9 @@ from matplotlib import cm, colors
 from Bio import Phylo
 import numpy as np
 from msa_utils import *
+from matplotlib import gridspec
+import matplotlib.patches as patches
+
 
 # plot output of phylop
 def plot_phylop_scores(phylop_data, output_plot_file):
@@ -44,7 +47,7 @@ def get_tree_y_positions(tree):
 
 
 def color_tree(tree, subtree_name=None, values=None, msa=None,
-               cmap_name='coolwarm', output_file="out_tree.png"):
+               cmap_name='rainbow', output_file="out_tree.png"):  # coolwarm
     """
     Generalized function to color a tree.
     - Either provide a subtree name to color that subtree.
@@ -120,31 +123,41 @@ def color_tree(tree, subtree_name=None, values=None, msa=None,
 
         # Custom label function to return the name for terminal nodes, and set leaf color
 
+
+
+
     def leaf_labels(clade):
         if clade.is_terminal():
             # Return the clade's name if terminal (leaf) and adjust color accordingly
             return clade.name
         return None
 
-    # Draw the tree
-    fig, ax_tree = plt.subplots(figsize=(10, 10))
-#    if msa is not None:
-    print("Adding MSA!!!")
-    ax_msa = fig.add_axes([0.6, 0.1, 0.3, 0.8])  # Add MSA subplot
+    if msa is None:
+        # Draw the tree
+        fig, ax_tree = plt.subplots(figsize=(10, 10))
+    else: # add msa axes
+        # Set up the grid layout to place MSA on the right
+        fig = plt.figure(figsize=(10, 8))
+        gs = gridspec.GridSpec(1, 2, width_ratios=[4, 3])  # Adjust width ratios for desired spacing
+
+        # Tree and colorbar axis on the left
+        ax_tree = fig.add_subplot(gs[0])
+
+        # MSA plot axis on the right
+        ax_msa = fig.add_subplot(gs[1])
 
     Phylo.draw(tree, label_func=leaf_labels, do_show=False, axes=ax_tree)
-
-#    fig = plt.figure(figsize=(10, 10))
-#    axes = fig.add_subplot(1, 1, 1)
-    # Draw the tree with colored branches
-#    Phylo.draw(tree, axes=axes, label_func=leaf_labels,  do_show=False)
+    ax_tree.set_ylabel('')
 
     # If coloring by numerical values, add a color bar
     if values is not None:
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
         sm.set_array([])  # Set a dummy array for the colorbar
-        cbar = plt.colorbar(sm, ax=ax_tree)
-        cbar.set_label('Branch Values')
+    #    if msa is None:
+        cbar = plt.colorbar(sm, ax=ax_tree, location='left')
+    #    else:
+    #        cbar = plt.colorbar(sm, ax=ax_colorbar)
+        cbar.set_label('Rate')
 
     for text in ax_tree.texts:  # axes.texts contains all the text objects
         leaf_name = text.get_text()
@@ -156,102 +169,77 @@ def color_tree(tree, subtree_name=None, values=None, msa=None,
                 else:  # color numbers 0-255
                     text.set_color((clade.color.red / 255, clade.color.green / 255, clade.color.blue / 255))
 
-    print("BEFORE IF MSA")
-    if msa is not None:  # Display also msa sequences
-        print("Adding MSA!!!")
-#        ax_msa = fig.add_axes([0.6, 0.1, 0.3, 0.8])  # Add MSA subplot
-
-        # Get y-positions of leaves to align MSA correctly
-        y_positions = get_tree_y_positions(tree)
-        print("y_positions before: ", y_positions)
-        y_positions = {key.rstrip('0123456789'):y_positions[key] for key in y_positions}
-        print("y_positions after: ", y_positions)
-
+    def color_msa(seq):
         # Define nucleotide colors
-        nucleotide_colors = {"A": "green", "C": "blue", "G": "orange", "T": "red", "-": "lightgrey"}
+        nucleotide_colors = {"A": "green", "C": "purple", "G": "orange", "T": "red", "-": "grey"}
+        nucleotide_background_colors = {"A": "lightblue", "C": "lightblue", "G": "lightblue", "T": "lightblue", "-": "white"}
+        color_vec = [nucleotide_colors[n.upper()] for n in seq]
+        color_background_vec = [nucleotide_background_colors[n.upper()] for n in seq]
 
-        # Collect leaf names in the order they appear in the tree drawing
-        leaves = tree.get_terminals()
-        leaf_names = [leaf.name for leaf in leaves]
+        return color_vec, color_background_vec
+
+    if msa is not None:  # Display also msa sequences
 
         # Extract species names from the tree
         tree_species = {leaf.name for leaf in tree.get_terminals()}
-
         # Filter MSA blocks by tree species
-        print("Tree Species: ", tree_species)
-        print("Length msa before:")
-###        msa = filter_msa_blocks_by_species(msa, tree_species)
+#        num_tree_species = len(tree_species)
+        # Get y-positions of leaves to align MSA correctly
+        y_positions = get_tree_y_positions(tree)
+        y_positions = {key.rstrip('0123456789'):y_positions[key] for key in y_positions}
 
-        # Plot the MSA blocks, offsetting each block sequentially
-        x_offset = 0
+
+        # Determine the longest sequence length across all records for consistent x-axis limits
+        max_seq_length = max(len(record.seq) for block in msa for record in block)
+        ax_msa.set_xlim(0, max_seq_length)
+        ax_msa.set_ylim(-0.5, max(y_positions.values()) + 0.5)
+
+        # Plot each MSA row
+        found_ctr=0
+        found_species=set()
         for block in msa:
-#            print("Filtered MSA Block: ")
-#            print(block)
-            for record in block:
-                species_name = record.id.split(".")[0].rstrip('0123456789')  # remove genome version
-#                print("Trying to find ", species_name)
+            max_seq_length = max(len(record.seq) for record in block)  # make len specific for one block!!!
+            msa_width = ax_msa.get_window_extent().width
+            char_width = msa_width / max_seq_length
+            display_msa = {species_name.rstrip('0123456789').replace("HL", ""): "-" * max_seq_length for species_name in tree_species}
+            display_color = {species_name.rstrip('0123456789').replace("HL", ""): ['grey'] * max_seq_length for species_name in tree_species}
+            display_background_color = {species_name.rstrip('0123456789').replace("HL", ""): ['white'] * max_seq_length for species_name in tree_species}
+
+
+            for record in block:  # Fill matrix
+                species_name = record.id.split('.')[0].rstrip('0123456789').replace("HL", "")
+#                print("Looking for species=", species_name)
                 if species_name in y_positions:
-                    print("Add patch!!! ", str(record.seq))
-                    print("species_name: ", species_name, " record.id: ", record.id, " y.positions: ", y_positions)
-                    y = y_positions[species_name]
-                    for x, nucleotide in enumerate(str(record.seq)):
-                        color = nucleotide_colors.get(nucleotide, "black")
-                        ax_msa.add_patch(plt.Rectangle((x + x_offset, y), 1, 1, color=color))
-            x_offset += block.get_alignment_length()
-            break  # Take one block!! Temporary!!
+                    display_msa[species_name] = str(record.seq)
+                    display_color[species_name], display_background_color[species_name] = color_msa(str(record.seq))
+            break  # do only one block!
 
-        # Formatting
-#        print("Got y positions: ", y_positions)
-#        print("Got x_offset: ", x_offset)
-        ax_msa.set_xlim(0, x_offset)
-        ax_msa.set_ylim(0, len(y_positions))
-        ax_msa.axis("off")  # Turn off axis for the MSA
-        ax_msa.set_title("MSA")
+        # Now display:
+        for genome_ver in tree_species:  # loop on species tree
+            species_name = genome_ver.split('.')[0].rstrip('0123456789').replace("HL", "")
+            y_pos = 1 - ((y_positions[species_name]+0.8) / (len(y_positions) + 0.8))  # inverts for top alignment
 
-#        if isinstance(msa, list): # multiple blocks !!! take first !!
-#            use_msa = msa[0]
-#        else:
-#            use_msa = msa
-#        # Create a dictionary mapping leaf names to their MSA sequences (MSA can come in blocks!!!)
-#        msa_dict = {record.id: str(record.seq) for record in use_msa}
+            # Calculate the total width of ax_msa
+            # Plot each nucleotide as a rectangle with background color
+            for j, nucleotide in enumerate(display_msa[species_name]):
+                x_pos = j / max_seq_length #  * char_width   # Scale j to fit within plot width
+                ax_msa.add_patch(patches.Rectangle((x_pos, y_pos - 0.5/(len(y_positions) + 0.8)), char_width, 1/(len(y_positions) + 0.8),
+                                                   transform=ax_msa.transAxes, color=display_background_color[species_name][j]))  # , edgecolor='none'
+                # Add nucleotide text
+                ax_msa.text(x_pos + 0.5/max_seq_length, y_pos, nucleotide, ha='center', va='center', fontsize=10,
+                    transform=ax_msa.transAxes, color=display_color[species_name][j])
 
-#        # Create an alignment matrix to display the sequences alongside the tree
-#        msa_matrix = [list(msa_dict[leaf_name]) if leaf_name in msa_dict else [''] * use_msa.get_alignment_length() for
-#                      leaf_name in leaf_names]
+#            tree_species_missing_in_msa = {t.rstrip('0123456789') for t in tree_species} - found_species
+#            sequence = '-' * max_seq_length  # didn't find species in this region
+#        print("Tree species missing in MSA for genomic region: ", tree_species_missing_in_msa)
+#        print("Num. Species found in region=", found_ctr, " ; num in tree: ", len(tree_species))
 
-        # Convert MSA matrix to numpy for easier display
- #       msa_array = np.array(msa_matrix)
-
-        # Create a new axes for the MSA display
-#        ax_msa = fig.add_axes([0.8, 0.1, 0.15, 0.8])  # Adjust position and size as needed
-#        ax_msa.set_title("MSA")
-#        # Display the MSA matrix as an image
-#        # Color mapping for nucleotides or amino acids
-#        msa_cmap = plt.cm.Pastel1
-#        ax_msa.imshow(msa_array == 'A', cmap=msa_cmap, aspect='auto',
-#                      interpolation='none')  # Example with 'A'; update to generalize
-#        # Adjust the axis
-#        ax_msa.set_xticks(range(use_msa.get_alignment_length()))
-#        ax_msa.set_yticks(range(len(leaf_names)))
-#        ax_msa.set_yticklabels(leaf_names, fontsize=8)
-#        ax_msa.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)
-
-        # NEW: Create MSA heatmap with text overlay
- #       ax_msa = fig.add_axes([0.75, 0.1, 0.15, 0.8])
- #       msa_array = np.array([list(rec.seq) for rec in use_msa])
- #       msa_data = np.vectorize(lambda x: ord(x))(msa_array)  # Convert characters to int for color mapping
-
-        # Display MSA heatmap
- #       im = ax_msa.imshow(msa_data, aspect='auto', cmap='coolwarm')
- #       plt.colorbar(im, ax=ax_msa, orientation="vertical", label="MSA")
-
-        # Overlay text of each character in MSA
-#        for i in range(msa_data.shape[0]):
-#            for j in range(msa_data.shape[1]):
-#                ax_msa.text(j, i, msa_array[i, j], ha='center', va='center', color='black', fontsize=6)
+        # Hide x-axis labels for MSA
+        ax_msa.set_xticks([])
+        ax_msa.set_yticks([])
+        plt.subplots_adjust(wspace=0.05)  # Reduce spacing between subplots
 
     # Save the plot to a file
-    print("SAVING TREE+MSA!!!")
     plt.savefig(output_file)
     plt.close()
 

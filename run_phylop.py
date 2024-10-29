@@ -22,6 +22,9 @@ alignment = "multiz470" # "multiz470"  # multiz30
 
 
 if reload_modules:
+    import phylo_utils
+    import phylo_plot_utils
+    import msa_utils
     importlib.reload(phylo_utils)
     importlib.reload(msa_utils)
     importlib.reload(phylo_plot_utils)
@@ -165,6 +168,7 @@ if parse_msa:
     tree30 = Phylo.read(data_dir + "/phylop30/hg38.phyloP30way_named.mod", "newick") # TEMP HARD CODED 30
     msa_output_file = msa_file[:-4] + "_pos_" + str(start_pos) + "_" + str(end_pos) + ".maf"
     msa_selected_blocks = extract_subalignment(msa_file, start_pos, end_pos, msa_output_file)
+    msa_selected_blocks2 = AlignIO.parse(msa_file, "maf")
 
     values_dict = dict(zip(tree30.get_terminals() + tree30.get_nonterminals(),
             np.random.random(len(tree30.get_terminals()) + len(tree30.get_nonterminals()))))

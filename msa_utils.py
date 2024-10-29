@@ -45,8 +45,9 @@ def extract_subalignment(msa_file, start, end, output_file, include_species=None
 
         selected_blocks = []
 
+        block_ctr = 0
         for block in alignment_blocks:
-            print("Run block!")
+            block_ctr += 1
             # Check each sequence in the block
             block_in_range = False
             for record in block:
@@ -57,10 +58,10 @@ def extract_subalignment(msa_file, start, end, output_file, include_species=None
                 if record.annotations["strand"] == -1:
                     start_pos_block, end_pos_block = end_pos_block, start_pos_block
 
-                print("start=", start, " ; end=", end, "; start_pos=", start_pos_block, "; end_pos=", end_pos_block)
+#                print("start=", start, " ; end=", end, "; start_pos=", start_pos_block, "; end_pos=", end_pos_block)
                 # Determine if block is within the specified range
                 if min(start_pos_block, end_pos_block) <= end and max(start_pos_block, end_pos_block) >= start: #  if not (end < start_pos or start > end_pos):
-                    print("Found block in range!!")
+#                    print("Found block in range!!, ctr=", block_ctr)
                     block_in_range = True
                     break
 
