@@ -370,7 +370,6 @@ def find_best_rate_split_in_tree(tree_file, msa_file, output_dir, method="binary
     tree = Phylo.read(tree_file,  "newick")
     print("Start best rate split, output-dir=", output_dir)
     if method == "greedy":  # enumerate over all possible splits
-
         best_subtree = None
         best_score = float('-inf')
 
@@ -404,4 +403,19 @@ def find_best_rate_split_in_tree(tree_file, msa_file, output_dir, method="binary
 
         return best_subtree, best_score
 
+    if method == "binary":  # split tree binary each time
+        best_subtree = None
+        best_score = float('-inf')
+        clade = tree.root  # split at the root
+
+
+        subtree_name = clade.name or f"clade_{clade.confidence}"  # Use name or confidence if unnamed
+
+
+        phylop_scores = run_phylop_linux(tree_file, msa_file, output_file, \
+                sub_tree=subtree_name, mode="CONACC", method="SCORE", read_output=True)
+
+
+        # Run on two sub-trees:
+        
 
