@@ -3,7 +3,8 @@ from Bio import Phylo
 import matplotlib.pyplot as plt
 import os
 from Bio import AlignIO
-
+import importlib
+import subprocess
 import numpy as np
 from matplotlib import cm, colors
 from phylo_utils import *
@@ -28,9 +29,9 @@ parser.add_argument('--verbose', action='store_true', help='Enable verbose mode'
 args = parser.parse_args()
 
 # Operations to do:
-reload_modules = False
+reload_modules = True
 plot_trees = args.run_mode == "plot_trees"
-prune_tree_by_msa_species = args.run_mode == "prune_tree_by_msa"
+prune_tree_by_msa = args.run_mode == "prune_tree_by_msa"
 run_phylop = args.run_mode == "run_phylop"
 run_phylop_best_split = args.run_mode == "run_phylop_best_split"
 run_phylop_recursive = args.run_mode == "plot_phylop_recursive"
@@ -92,7 +93,7 @@ output_phylop_file = data_dir + "/output/phylop/phylop_from_python_subtree_" + s
 
 # Read the tree from a Newick file. Prune tree (Hard coded!)
 tree = Phylo.read(tree_file, "newick")
-if prune_tree_by_msa_species: # Prune tree and save
+if prune_tree_by_msa: # Prune tree and save
     missing_species_in_msa = ['ponAbe2', 'papAnu3', 'nasLar1', 'rhiRox1', 'rhiBie1', 'tarSyr2', 'micMur3', 'proCoq1', 'eulMac1', 'eulFla1', 'mm10', 'dasNov3']
     pruned_tree = prune_tree(tree, missing_species_in_msa)
     pruned_tree_file = tree_file[:-4] + "_pruned.mod"
@@ -150,52 +151,21 @@ if run_phylop:  # just run on a simple split of the tree into two
 
 
 if run_phylop_best_split:  # find automatically the best split into two complementary sub-trees
-    print("Running tree partitioning to two sub-trees!!!")
-    # Example usage
-#    output_file = "/mnt/g/My Drive/Data/hg38_470Vert/output/phylop/phylop_from_python_subtree_calJac3-saiBol1.out"
-#    phylop_data = read_phylop_output_fixed_step(output_phylop_file, plot_flag=True)
-
-#    print("read phylop output: ")
-#    print(type(phylop_data))
-#    print(len(phylop_data))
-#    print(phylop_data[0:10])
-
-    # read alignment:
-    msa_blocks = AlignIO.parse(msa_file, "maf")
-    msa_species = set()
-    start_pos_vec, end_pos_vec = [], []
-    for block in msa_blocks:
-        for record in block:
-            # Extract the species name (assuming it's the prefix before a dot)
-            species = record.id.split('.')[0]
-            msa_species.add(species)
-
-            start_pos_vec.append(record.annotations["start"])
-            end_pos_vec.append(start_pos_vec[-1] + record.annotations["size"])
-
-#    print("start: ", start_pos_vec)
-#    print("end: ", end_pos_vec)
-
-    # Extract species names in the tree
-    tree_species = {leaf.name for leaf in tree.get_terminals()}
-
-    # Find species missing in the MSA
-    missing_species_in_msa = tree_species - msa_species
-    pruned_tree_file = tree_file[:-4] + "_pruned.mod"
-    extract_and_prune_model(tree_file, missing_species_in_msa, pruned_tree_file)
-
-    print("Find best rate split!!!")
-#    best_subtree, best_score = fit_two_subtree_rates(pruned_tree_file, msa_file, output_dir + "/" + phylop_str + "/" + element_str + "_split_tree.out", plot_tree=True)
-#    print("Found best rate split: ", best_subtree, best_score)
-    best_subtree_binary, best_score_binary = fit_two_subtree_rates(pruned_tree_file, msa_file, output_dir + "/" + phylop_str + "/" + element_str + "_split_tree.out", plot_tree=True, method="binary")
-    print("Found best rate split: ", best_subtree_binary.root.name, best_score_binary)
-
-    # Getting back the objects:
-#with open('tree_to_plot.pkl', 'rb') as f:  # Python 3: open(..., 'rb')
-#        tree, subtree_rates, output_plot_tree_file = pickle.load(f)
-with open('tree_with_sub.pkl', 'rb') as f:  # Python 3: open(..., 'rb')
-    tree, best_subtree = pickle.load(f)
-
+    print("Running tree partitioning to two sub-trees of different rates:")
+    print(tree_file, msa_file)
+    pruned_tree, pruned_tree_file = prune_tree_by_msa_species(tree_file, msa_file)  # get msa species in tree
+    if start_pos is not None:
+        use_msa_file = msa_file.replace('.maf', '_start_' + str(start_pos) + "_" + str(end_pos) + ".maf" )
+        extract_subalignment(msa_file, start_pos, end_pos, use_msa_file)
+    else:  # no need for extracting
+        use_msa_file = msa_file
+    output_file = output_dir + "/" + phylop_str + "/" + element_str + "_split_tree.out"
+    best_subtree, best_score = fit_two_subtree_rates(pruned_tree_file, use_msa_file, output_file,
+                                                                   plot_tree=True, method="brute-force")
+    print("Found best rate split brute-force: ", best_subtree.root.name, best_score)
+    best_subtree_binary, best_score_binary = fit_two_subtree_rates(pruned_tree_file, use_msa_file, output_file,
+                                                                   plot_tree=True, method="binary")
+    print("Found best rate split binary: ", best_subtree_binary.root.name, best_score_binary)
 
 
 # split recursively into multiple subtrees with different rates
@@ -218,3 +188,21 @@ if parse_msa:  # read and extract sub-alignment
                output_file=data_dir + "/output/trees/output_tree_with_msa_new_filtered.png")
     color_tree(tree30, values=values_dict,
                output_file=data_dir + "/output/trees/output_tree_no_msa_new_filtered.png")
+
+
+
+################################################################
+########### OLD STUFF/JUNK BELOW ###############################
+################################################################
+    # Getting back the objects:
+#with open('tree_to_plot.pkl', 'rb') as f:  # Python 3: open(..., 'rb')
+#        tree, subtree_rates, output_plot_tree_file = pickle.load(f)
+#with open('tree_with_sub.pkl', 'rb') as f:  # Python 3: open(..., 'rb')
+#    tree, best_subtree = pickle.load(f)
+################################################################
+########### OLD STUFF/JUNK ABPVE ###############################
+################################################################
+
+
+#msa_file = "G:\My Drive\Data\hg38_470Vert\multiz30\chr22_GL383583v2_alt_start_47_82.maf"
+#debug_msa_blocks = AlignIO.parse(msa_file, "maf")

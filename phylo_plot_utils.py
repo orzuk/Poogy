@@ -179,7 +179,9 @@ def color_tree(tree, subtree_name=None, values=None, msa=None,
         return color_vec, color_background_vec
 
     if msa is not None:  # Display also msa sequences
-
+        if isinstance(msa, str):
+            print("msa file: ", msa)
+            msa = AlignIO.parse(msa, "maf")
         # Extract species names from the tree
         tree_species = {leaf.name for leaf in tree.get_terminals()}
         # Filter MSA blocks by tree species
@@ -190,21 +192,21 @@ def color_tree(tree, subtree_name=None, values=None, msa=None,
 
 
         # Determine the longest sequence length across all records for consistent x-axis limits
-        max_seq_length = max(len(record.seq) for block in msa for record in block)
-        ax_msa.set_xlim(0, max_seq_length)
-        ax_msa.set_ylim(-0.5, max(y_positions.values()) + 0.5)
+#        max_seq_length = max(len(record.seq) for block in msa for record in block)
 
         # Plot each MSA row
         found_ctr=0
         found_species=set()
         for block in msa:
+#            print("run block: ", block)
             max_seq_length = max(len(record.seq) for record in block)  # make len specific for one block!!!
+            ax_msa.set_xlim(0, max_seq_length)
+            ax_msa.set_ylim(-0.5, max(y_positions.values()) + 0.5)
             msa_width = ax_msa.get_window_extent().width
             char_width = msa_width / max_seq_length
             display_msa = {species_name.rstrip('0123456789').replace("HL", ""): "-" * max_seq_length for species_name in tree_species}
             display_color = {species_name.rstrip('0123456789').replace("HL", ""): ['grey'] * max_seq_length for species_name in tree_species}
             display_background_color = {species_name.rstrip('0123456789').replace("HL", ""): ['white'] * max_seq_length for species_name in tree_species}
-
 
             for record in block:  # Fill matrix
                 species_name = record.id.split('.')[0].rstrip('0123456789').replace("HL", "")

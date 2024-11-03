@@ -1,11 +1,10 @@
-import subprocess
-from Bio import Phylo
+# from Bio import Phylo
 # from phasty import *
+import subprocess
 from phylo_plot_utils import *
-import numpy as np
+# import numpy as np
 import os
 import copy
-import importlib
 from Bio import Phylo
 import pickle
 import sys
@@ -73,6 +72,7 @@ def extract_and_prune_model(input_file, species_to_remove, output_file):
     # Step 4: Write the updated model back to the output file
     with open(output_file, "w") as outfile:
         outfile.writelines(lines)
+    return pruned_tree_newick  # return the pruned tree
 
 
 def update_internal_node_names(tree):
@@ -360,7 +360,7 @@ def fit_two_subtree_rates(tree_file, msa_file, output_file, phylop_score="SCORE"
     best_subtree, best_score = find_best_rate_split_in_tree(tree_file, msa_file, output_dir, method)
     print("Best Subtree: ", best_subtree if isinstance(best_subtree, str) else best_subtree.root.name)
     print("Best score: ", best_score)
-    comp_best_tree = get_complementary_tree(tree, best_subtree) # Fit rates for the two trees
+#    comp_best_tree = get_complementary_tree(tree, best_subtree) # Fit rates for the two trees
     if plot_tree:
         output_plot_tree_file = output_file.replace(".out", "_" + method + ".png")
         print("Plotting! Saving in: ", output_plot_tree_file)
@@ -375,10 +375,11 @@ def fit_two_subtree_rates(tree_file, msa_file, output_file, phylop_score="SCORE"
         subtree_rates = subtrees_to_color_vector(tree, [best_subtree])  # Compute rates and color
 #        print(subtree_rates)
         # Saving the objects:
-        with open('tree_to_plot.pkl', 'wb') as f:  # Python 3: open(..., 'wb')
-            pickle.dump([tree, subtree_rates, output_plot_tree_file], f)
+#        with open('tree_to_plot.pkl', 'wb') as f:  # Python 3: open(..., 'wb')
+#            pickle.dump([tree, subtree_rates, output_plot_tree_file], f)
 
-        color_tree(tree, values=subtree_rates, cmap_name='coolwarm', output_file=output_plot_tree_file)
+        color_tree(tree, values=subtree_rates, cmap_name='coolwarm', msa=msa_file,  # color tree with msa !!
+                   output_file=output_plot_tree_file)
 
     return best_subtree, best_score
 
@@ -476,3 +477,5 @@ def find_best_rate_split_in_tree(tree_file, msa_file, output_dir, method="binary
                     return best_subtree, best_score
                 else:
                     return side_best_subtree, side_best_score
+
+
