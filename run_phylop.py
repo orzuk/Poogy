@@ -199,6 +199,10 @@ if parse_msa:  # read and extract sub-alignment
 #        tree, subtree_rates, output_plot_tree_file = pickle.load(f)
 #with open('tree_with_sub.pkl', 'rb') as f:  # Python 3: open(..., 'rb')
 #    tree, best_subtree = pickle.load(f)
+
+# with open('bad_msa_phylop_scores.pkl', 'wb') as f:  # Python 3: open(..., 'wb')
+with open('bad_msa_phylop_scores.pkl', 'rb') as f:  # Python 3: open(..., 'rb')
+    tree_file, msa_file, output_plot_tree_file, best_subtree = pickle.load(f)
 ################################################################
 ########### OLD STUFF/JUNK ABPVE ###############################
 ################################################################

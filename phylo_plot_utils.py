@@ -1,11 +1,11 @@
 import matplotlib.pyplot as plt
 from matplotlib import cm, colors
-from Bio import Phylo
 import numpy as np
 from msa_utils import *
 from matplotlib import gridspec
 import matplotlib.patches as patches
-
+import matplotlib.gridspec as gridspec
+from Bio import Phylo, AlignIO
 
 # plot output of phylop
 def plot_phylop_scores(phylop_data, output_plot_file):
@@ -46,7 +46,7 @@ def get_tree_y_positions(tree):
     return y_positions
 
 
-def color_tree(tree, subtree_name=None, values=None, msa=None,
+def color_tree(tree, subtree_name=None, values=None, msa=None, scores=None,
                cmap_name='rainbow', output_file="out_tree.png"):  # coolwarm
     """
     Generalized function to color a tree.
@@ -107,24 +107,8 @@ def color_tree(tree, subtree_name=None, values=None, msa=None,
                 branch_color = cmap(color_value)
                 # Assign color to clade
                 clade.color = colors.rgb2hex(branch_color)
-
-
-        # Normalize the values to [0,1] for the color map
-#        norm = colors.Normalize(vmin=np.min(values), vmax=np.max(values))
-#        branch_colors = cmap(norm(values))
-
-        # Assign colors to each branch based on the values
-#        for clade, branch_color in zip(tree.get_nonterminals() + tree.get_terminals(), branch_colors):
-#            # Convert the RGB tuple (from colormap) to a hex string for matplotlib
-#            clade.color = colors.rgb2hex(branch_color)
-
     else:
         raise ValueError("Either subtree_name or values must be provided.")
-
-        # Custom label function to return the name for terminal nodes, and set leaf color
-
-
-
 
     def leaf_labels(clade):
         if clade.is_terminal():
@@ -153,10 +137,11 @@ def color_tree(tree, subtree_name=None, values=None, msa=None,
     if values is not None:
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
         sm.set_array([])  # Set a dummy array for the colorbar
-    #    if msa is None:
-        cbar = plt.colorbar(sm, ax=ax_tree, location='left')
-    #    else:
-    #        cbar = plt.colorbar(sm, ax=ax_colorbar)
+        if scores is None:
+            cbar = plt.colorbar(sm, ax=ax_tree, location='left')
+        else:
+            ax_cbar = fig.add_subplot(gs[1, 0])  # Added subplot for horizontal colorbar
+            cbar = plt.colorbar(sm, cax=ax_cbar, orientation='horizontal')  # Horizontal orientation
         cbar.set_label('Rate')
 
     for text in ax_tree.texts:  # axes.texts contains all the text objects
@@ -185,18 +170,12 @@ def color_tree(tree, subtree_name=None, values=None, msa=None,
         # Extract species names from the tree
         tree_species = {leaf.name for leaf in tree.get_terminals()}
         # Filter MSA blocks by tree species
-#        num_tree_species = len(tree_species)
         # Get y-positions of leaves to align MSA correctly
         y_positions = get_tree_y_positions(tree)
         y_positions = {key.rstrip('0123456789'):y_positions[key] for key in y_positions}
 
 
-        # Determine the longest sequence length across all records for consistent x-axis limits
-#        max_seq_length = max(len(record.seq) for block in msa for record in block)
-
         # Plot each MSA row
-        found_ctr=0
-        found_species=set()
         for block in msa:
 #            print("run block: ", block)
             max_seq_length = max(len(record.seq) for record in block)  # make len specific for one block!!!
@@ -231,15 +210,19 @@ def color_tree(tree, subtree_name=None, values=None, msa=None,
                 ax_msa.text(x_pos + 0.5/max_seq_length, y_pos, nucleotide, ha='center', va='center', fontsize=10,
                     transform=ax_msa.transAxes, color=display_color[species_name][j])
 
-#            tree_species_missing_in_msa = {t.rstrip('0123456789') for t in tree_species} - found_species
-#            sequence = '-' * max_seq_length  # didn't find species in this region
-#        print("Tree species missing in MSA for genomic region: ", tree_species_missing_in_msa)
-#        print("Num. Species found in region=", found_ctr, " ; num in tree: ", len(tree_species))
-
         # Hide x-axis labels for MSA
         ax_msa.set_xticks([])
         ax_msa.set_yticks([])
         plt.subplots_adjust(wspace=0.05)  # Reduce spacing between subplots
+
+    if scores is not None:
+        ax_scores = fig.add_subplot(gs[2, 1])  # Added subplot for phyloP score plot
+        ax_scores.plot(scores, color='black')  # Plot with black line
+        ax_scores.set_xlim(0, len(scores) - 1)
+        ax_scores.set_xlabel('Alignment Position')
+        ax_scores.set_ylabel('Scores')
+        ax_scores.set_yticks([])  # Simplified appearance by removing y-ticks
+
 
     # Save the plot to a file
     plt.savefig(output_file)
