@@ -77,20 +77,27 @@ def extract_subalignment(msa_file, start, end, output_file, include_species=None
                 for record in block:
                     # Extract the sub-sequence using 0-based slicing
                     sub_seq = record.seq[new_start:new_end]
-                    print(sub_seq)
                     # Update the start and size annotations
                     new_start_annotation = record.annotations["start"] + new_start
                     new_size_annotation = len(sub_seq)
 
                     # Create a copy of the record with the updated sequence and annotations
+                    print("original record: ", record)
                     updated_record = record[:]
+                    print("copy record: ", updated_record)
                     updated_record.seq = sub_seq
+                    print("copy2 record: ", updated_record)
                     updated_record.annotations["start"] = new_start_annotation
+                    print("copy3 record: ", updated_record)
                     updated_record.annotations["size"] = new_size_annotation
+                    print("copy4 record: ", updated_record)
+
+                    print("add update record: ", updated_record)
+                    print("start: ", new_start_annotation, " size=", new_size_annotation)
                     updated_records.append(updated_record)
                 # Chop block!!!
                 print("Found block!!! start=", start, " ; end=", end, "; start_pos=", start_pos_block, "; end_pos=", end_pos_block, " add len=", end_pos_block-start_pos_block+1,
-                      " new_start=", new_start, " new_end=", new_end)
+                      " new_start=", new_start, " new_end=", new_end, " block_ctr=", block_ctr)
 #                selected_blocks.append(block)
                 selected_blocks.append(MultipleSeqAlignment(updated_records))
 

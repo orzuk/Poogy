@@ -23,7 +23,7 @@ parser.add_argument('--k', type=int, default=10, help='Kmer length')
 parser.add_argument('--run_mode', type=str, default='plot_trees', help='Mode to run the script')  # Here decide what to do
 parser.add_argument('--pos', type=str, default='', help='Genomic coordinates')  # Here decide what to do
 parser.add_argument('--verbose', action='store_true', help='Enable verbose mode')  # Example for boolean operation
-
+parser.add_argument('--help', action='store_true', help='')  # Example for boolean operation
 
 # Parse the command-line arguments
 args = parser.parse_args()
@@ -36,11 +36,12 @@ run_phylop = args.run_mode == "run_phylop"
 run_phylop_best_split = args.run_mode == "run_phylop_best_split"
 run_phylop_recursive = args.run_mode == "plot_phylop_recursive"
 parse_msa = args.run_mode == "parse_msa"
-help = args.run_mode == "help"
+help = args.run_mode == "help" or
 alignment = args.alignment # "multiz470" # "multiz470"  # multiz30
 
 if help:
     print("Usage: python3 run_phylop --alignemt=<alignment-file>, --k=<kmer-length> --run_mode=<operation-to-run>")
+    sys.exit()
 
 if reload_modules:
     import phylo_utils
@@ -176,6 +177,7 @@ if run_phylop_recursive:
 
 if parse_msa:  # read and extract sub-alignment
     tree30 = Phylo.read(data_dir + "/phylop30/hg38.phyloP30way_named.mod", "newick") # TEMP HARD CODED 30WAY !!
+#    msa_file = file_name_to_unix(msa_file)
     msa_output_file = msa_file[:-4] + "_pos_" + str(start_pos) + "_" + str(end_pos) + ".maf"
     msa_selected_blocks = extract_subalignment(msa_file, start_pos, end_pos, msa_output_file)
     msa_selected_blocks2 = AlignIO.parse(msa_file, "maf")

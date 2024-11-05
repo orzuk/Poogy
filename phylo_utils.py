@@ -491,3 +491,5 @@ def find_best_rate_split_in_tree(tree_file, msa_file, output_dir, method="binary
                     return side_best_subtree, side_best_score
 
 
+def file_name_to_unix(f):
+    return f.replace('/mnt/g', 'G:').replace("/", chr(92))
