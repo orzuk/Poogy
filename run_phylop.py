@@ -13,7 +13,6 @@ from msa_utils import *
 from sys import platform
 import argparse
 
-
 # Create an argument parser object
 parser = argparse.ArgumentParser(description="Run tree rate splitting with optional arguments.")
 
@@ -23,7 +22,9 @@ parser.add_argument('--k', type=int, default=10, help='Kmer length')
 parser.add_argument('--run_mode', type=str, default='plot_trees', help='Mode to run the script')  # Here decide what to do
 parser.add_argument('--pos', type=str, default='', help='Genomic coordinates')  # Here decide what to do
 parser.add_argument('--verbose', action='store_true', help='Enable verbose mode')  # Example for boolean operation
-parser.add_argument('--help', action='store_true', help='')  # Example for boolean operation
+parser.add_argument('--h', dest='h', action='store_true', help='help')  # Example for boolean operation
+parser.add_argument('--no-h', dest='h', action='store_false', help="A boolean flag that is False if provided.")
+
 
 # Parse the command-line arguments
 args = parser.parse_args()
@@ -36,10 +37,10 @@ run_phylop = args.run_mode == "run_phylop"
 run_phylop_best_split = args.run_mode == "run_phylop_best_split"
 run_phylop_recursive = args.run_mode == "plot_phylop_recursive"
 parse_msa = args.run_mode == "parse_msa"
-help = args.run_mode == "help" or
+help_mode = (args.run_mode == "help") or args.h
 alignment = args.alignment # "multiz470" # "multiz470"  # multiz30
 
-if help:
+if help_mode:
     print("Usage: python3 run_phylop --alignemt=<alignment-file>, --k=<kmer-length> --run_mode=<operation-to-run>")
     sys.exit()
 

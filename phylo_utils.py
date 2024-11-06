@@ -383,7 +383,8 @@ def fit_two_subtree_rates(tree_file, msa_file, output_file, phylop_score="SCORE"
         with open('bad_msa_phylop_scores.pkl', 'wb') as f:  # Python 3: open(..., 'wb')
                     pickle.dump([tree_file, msa_file, output_plot_tree_file, best_subtree], f)
         # hard-code hack:
-        best_subtree.root.name = 'hg38-colAng1'
+#        best_subtree.root.name = 'hg38-colAng1'
+#        print("Run on subtree: ", best_subtree)
         final_phylop_scores = run_phylop_linux(tree_file, msa_file, output_file, \
                                          sub_tree=best_subtree.root.name, mode="CONACC", method="SCORE", read_output=True)
 

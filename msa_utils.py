@@ -1,3 +1,5 @@
+import copy
+
 from Bio import AlignIO, Phylo
 from Bio.Align import MultipleSeqAlignment
 from phylo_utils import *
@@ -83,7 +85,7 @@ def extract_subalignment(msa_file, start, end, output_file, include_species=None
 
                     # Create a copy of the record with the updated sequence and annotations
                     print("original record: ", record)
-                    updated_record = record[:]
+                    updated_record = copy.deepcopy(record)
                     print("copy record: ", updated_record)
                     updated_record.seq = sub_seq
                     print("copy2 record: ", updated_record)
