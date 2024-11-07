@@ -119,16 +119,28 @@ def color_tree(tree, subtree_name=None, values=None, msa=None, scores=None,
     if msa is None:
         # Draw the tree
         fig, ax_tree = plt.subplots(figsize=(10, 10))
-    else: # add msa axes
-        # Set up the grid layout to place MSA on the right
-        fig = plt.figure(figsize=(10, 8))
-        gs = gridspec.GridSpec(1, 2, width_ratios=[4, 3])  # Adjust width ratios for desired spacing
+    else:  # add msa axes
+        if scores is None:
+            # Set up the grid layout to place MSA on the right
+            fig = plt.figure(figsize=(10, 8))
+            gs = gridspec.GridSpec(1, 2, width_ratios=[4, 3])  # Adjust width ratios for desired spacing
 
-        # Tree and colorbar axis on the left
-        ax_tree = fig.add_subplot(gs[0])
+            # Tree and colorbar axis on the left
+            ax_tree = fig.add_subplot(gs[0])
 
-        # MSA plot axis on the right
-        ax_msa = fig.add_subplot(gs[1])
+            # MSA plot axis on the right
+            ax_msa = fig.add_subplot(gs[1])
+        else:
+            fig = plt.figure(figsize=(12, 10))  # Adjusted figure size
+            gs = gridspec.GridSpec(2, 2, height_ratios=[9, 1], width_ratios=[4, 3])  # Adjusted GridSpec
+
+            # Tree and colorbar axis on the left
+            ax_tree = fig.add_subplot(gs[0, 0])
+
+            ax_tree.set_ylabel('')
+
+            # MSA plot axis on the right
+            ax_msa = fig.add_subplot(gs[0, 1])
 
     Phylo.draw(tree, label_func=leaf_labels, do_show=False, axes=ax_tree)
     ax_tree.set_ylabel('')
@@ -216,8 +228,10 @@ def color_tree(tree, subtree_name=None, values=None, msa=None, scores=None,
         plt.subplots_adjust(wspace=0.05)  # Reduce spacing between subplots
 
     if scores is not None:
-        ax_scores = fig.add_subplot(gs[2, 1])  # Added subplot for phyloP score plot
-        ax_scores.plot(scores, color='black')  # Plot with black line
+        print("phylop_score_type=", type(scores), " ; len=", len(scores), "msa_len=", max_seq_length)
+        ax_scores = fig.add_subplot(gs[1, 1])  # Added subplot for phyloP score plot
+#        ax_scores.plot(scores, color='black')  # Plot with black line
+        ax_scores.bar(range(len(scores)), scores, color='black')  # bar-plot
         ax_scores.set_xlim(0, len(scores) - 1)
         ax_scores.set_xlabel('Alignment Position')
         ax_scores.set_ylabel('Scores')

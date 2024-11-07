@@ -388,10 +388,9 @@ def fit_two_subtree_rates(tree_file, msa_file, output_file, phylop_score="SCORE"
         final_phylop_scores = run_phylop_linux(tree_file, msa_file, output_file, \
                                          sub_tree=best_subtree.root.name, mode="CONACC", method="SCORE", read_output=True)
 
-
-        print("final_phylop_scores= ", final_phylop_scores)
-        print("final_phylop_scores['scale']=", final_phylop_scores['scale'])
-        color_tree(tree, values=subtree_rates, cmap_name='coolwarm', msa=msa_file, scores=final_phylop_scores['scale'], # color tree with msa !!
+#        print("final_phylop_scores= ", final_phylop_scores)
+#        print("final_phylop_scores['scale']=", [s['scale'] for s in final_phylop_scores] )
+        color_tree(tree, values=subtree_rates, cmap_name='coolwarm', msa=msa_file, scores=[s['scale'] for s in final_phylop_scores], # color tree with msa !!
                    output_file=output_plot_tree_file)
 
     return best_subtree, best_score
@@ -452,12 +451,11 @@ def find_best_rate_split_in_tree(tree_file, msa_file, output_dir, method="binary
                     sub_tree=sub_trees[side].root.name, mode="CONACC", method="SCORE", read_output=True)
             best_score = aggregate_scores(phylop_scores)
             best_subtree = sub_trees[side]
-            print("best_score=", best_score)
-            print("best_score_type=", type(best_score))
-            print("phylop_score_type=", type(phylop_scores), " ; len=", len(phylop_scores))
+#            print("best_score=", best_score)
+#            print("best_score_type=", type(best_score))
+#            print("phylop_score_type=", type(phylop_scores), " ; len=", len(phylop_scores), "msa_len=", len())
 
             if isinstance(best_score, list):
-                print("WTF? ")
                 sys.exit("Wrong format for best score!! ")
 
 
