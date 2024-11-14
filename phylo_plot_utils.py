@@ -46,7 +46,7 @@ def get_tree_y_positions(tree):
     return y_positions
 
 
-def color_tree(tree, subtree_name=None, values=None, msa=None, scores=None,
+def color_tree(tree, subtree_name=None, values=None, msa=None, scores=None, good_positions=None, split_score='',
                cmap_name='rainbow', output_file="out_tree.png"):  # coolwarm
     """
     Generalized function to color a tree.
@@ -141,6 +141,9 @@ def color_tree(tree, subtree_name=None, values=None, msa=None, scores=None,
 
             # MSA plot axis on the right
             ax_msa = fig.add_subplot(gs[0, 1])
+            # Set the global title for the figure
+
+        fig.suptitle("Best split score:"+str(split_score), fontsize=16)  # Show score
 
     Phylo.draw(tree, label_func=leaf_labels, do_show=False, axes=ax_tree)
     ax_tree.set_ylabel('')
@@ -231,7 +234,9 @@ def color_tree(tree, subtree_name=None, values=None, msa=None, scores=None,
         print("phylop_score_type=", type(scores), " ; len=", len(scores), "msa_len=", max_seq_length)
         ax_scores = fig.add_subplot(gs[1, 1])  # Added subplot for phyloP score plot
 #        ax_scores.plot(scores, color='black')  # Plot with black line
-        ax_scores.bar(range(len(scores)), scores, color='black')  # bar-plot
+        if good_positions is None:
+            good_positions = range(1, len(scores)+1)
+        ax_scores.bar(good_positions, scores, color='black')  # bar-plot
         ax_scores.set_xlim(0, len(scores) - 1)
         ax_scores.set_xlabel('Alignment Position')
         ax_scores.set_ylabel('Scores')
@@ -279,4 +284,5 @@ def subtrees_to_color_vector(tree, subtrees):
 #    values_vector = [values_dict[clade] for clade in tree.find_clades()]
 
     return values_dict  # values_vector
+
 

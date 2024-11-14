@@ -8,6 +8,7 @@ import copy
 from Bio import Phylo
 import pickle
 import sys
+import re
 
 
 def split_tree_at_root(tree):
@@ -143,6 +144,9 @@ def prune_tree(tree, species_to_remove):
             tree.prune(clade_to_remove)
 
     return tree
+
+def tree_to_species_names(tree):
+    return [s.name for s in tree.get_terminals()]
 
 
 def get_induced_subtree(tree, root_name):
@@ -337,7 +341,7 @@ def run_phylop_linux(tree_file, msa_file, output_file, sub_tree="", method="SCOR
 #        subprocess.run(["wsl", command], stdout=outfile, shell=True)
 
     if read_output:
-        print("Read phylop output: ", output_file, output_file.replace("'", ""))
+#        print("Read phylop output: ", output_file, output_file.replace("'", ""))
         return read_phylop_output_fixed_step(output_file.replace("'", ""))  # read with windows format
     else:
         return None
@@ -357,13 +361,12 @@ def fit_two_subtree_rates(tree_file, msa_file, output_file, phylop_score="SCORE"
 
     # Decide if significant or not
     output_dir = os.path.dirname(output_file)
-    best_subtree, best_score = find_best_rate_split_in_tree(tree_file, msa_file, output_dir, method)
-    print("Best Subtree: ", best_subtree if isinstance(best_subtree, str) else best_subtree.root.name)
-    print("Best score: ", best_score)
+    best_subtree, best_score, good_positions = find_best_rate_split_in_tree(tree_file, msa_file, output_dir, method, phylop_score)
+    print("Best Subtree: ", best_subtree if isinstance(best_subtree, str) else best_subtree.root.name, " ; Best score: ", best_score)
 #    comp_best_tree = get_complementary_tree(tree, best_subtree) # Fit rates for the two trees
     if plot_tree:
-        output_plot_tree_file = output_file.replace(".out", "_" + method + ".png")
-        print("Plotting! Saving in: ", output_plot_tree_file)
+        output_plot_tree_file = output_dir + '/trees/' + os.path.basename(output_file).replace(".out", "_" + method + ".png")
+#        print("Plotting! Saving tree plot in: ", output_plot_tree_file)
 #        with open('tree_with_sub.pkl', 'wb') as f:  # Python 3: open(..., 'wb')
 #            pickle.dump([tree, best_subtree], f)
 
@@ -371,7 +374,7 @@ def fit_two_subtree_rates(tree_file, msa_file, output_file, phylop_score="SCORE"
 #        print("Rates=?")
         if isinstance(best_subtree, str):  # convert to tree object
             best_subtree = get_induced_subtree(tree, best_subtree)
-        print("Best subtree=", best_subtree.root.name)
+#        print("Best subtree=", best_subtree.root.name)
         subtree_rates = subtrees_to_color_vector(tree, [best_subtree])  # Compute rates and color
 #        print(subtree_rates)
         # Saving the objects:
@@ -380,25 +383,25 @@ def fit_two_subtree_rates(tree_file, msa_file, output_file, phylop_score="SCORE"
 
 
         # get individual scores:
-        with open('bad_msa_phylop_scores.pkl', 'wb') as f:  # Python 3: open(..., 'wb')
-                    pickle.dump([tree_file, msa_file, output_plot_tree_file, best_subtree], f)
+#        with open('bad_msa_phylop_scores.pkl', 'wb') as f:  # Python 3: open(..., 'wb')
+#                    pickle.dump([tree_file, msa_file, output_plot_tree_file, best_subtree], f)
         # hard-code hack:
 #        best_subtree.root.name = 'hg38-colAng1'
 #        print("Run on subtree: ", best_subtree)
         final_phylop_scores = run_phylop_linux(tree_file, msa_file, output_file, \
-                                         sub_tree=best_subtree.root.name, mode="CONACC", method="SCORE", read_output=True)
+                                         sub_tree=best_subtree.root.name, mode="CONACC", method=phylop_score, read_output=True)
 
 #        print("final_phylop_scores= ", final_phylop_scores)
 #        print("final_phylop_scores['scale']=", [s['scale'] for s in final_phylop_scores] )
         color_tree(tree, values=subtree_rates, cmap_name='coolwarm', msa=msa_file, scores=[s['scale'] for s in final_phylop_scores], # color tree with msa !!
-                   output_file=output_plot_tree_file)
+                   split_score=best_score, good_positions=good_positions, output_file=output_plot_tree_file)
 
     return best_subtree, best_score
 
 
 # Split the tree such that the contrast in rate between the two halves is maximal.
 # Default: Use greedy approach with binary search. Alternative is to enumerate all possible splits with brute-force
-def find_best_rate_split_in_tree(tree_file, msa_file, output_dir, method="binary"):
+def find_best_rate_split_in_tree(tree_file, msa_file, output_dir, method="binary", phylop_score="SCORE"):
     tree = Phylo.read(tree_file,  "newick")
     print("Start best rate split, output-dir=", output_dir)
 
@@ -423,32 +426,37 @@ def find_best_rate_split_in_tree(tree_file, msa_file, output_dir, method="binary
 #            print("output dir: ", output_dir)
             output_file = os.path.join(output_dir, f"phylop_{subtree_name}.out")
 
-            print("Run phylop outputfile=", output_file)
+            filtered_columns = filter_and_concatenate_alignment(msa_file, tree_to_species_names(get_induced_subtree(tree, subtree_name)))
+            print("Filtered columns: ", filtered_columns)
+
+#            print("Run phylop outputfile=", output_file)
             # Run PhyloP for the current subtree (species or subtree)
-            phylop_scores = run_phylop_linux(tree_file, msa_file, output_file, \
-                                             sub_tree=subtree_name, mode="CONACC", method="SCORE", read_output=True)
+            phylop_scores = run_phylop_linux(tree_file, msa_file.replace('.maf', '_filtered.maf'), output_file, \
+                                             sub_tree=subtree_name, mode="CONACC", method=phylop_score, read_output=True)
             print("Finished phylop outputfile=", output_file)
             # Process the PhyloP output and calculate the score difference
             cur_score = aggregate_scores(phylop_scores)
-            print("cur_score=", cur_score)
-            print("best_score=", best_score)
+            print("cur_score=", cur_score, ' best_score=', best_score)
 
             # Track the subtree/species with the maximum score
             if cur_score > best_score:
                 best_score = cur_score
                 best_subtree = subtree_name
-                print("Found better!!!")
-                print(best_subtree, best_score)
+                print("Found better score !!!", best_score, ' and tree: ', best_subtree)
 
-        return best_subtree, best_score
+        return best_subtree, best_score, filtered_columns
 
     if method == "binary":  # split tree binary each time
         sub_trees = split_tree_at_root(tree)
 
         for side in range(2):  # try splitting both sides
+
+            filtered_columns = filter_and_concatenate_alignment(msa_file, tree_to_species_names(get_induced_subtree(tree, sub_trees[side].root.name)))
+            print("Filtered columns: ", filtered_columns)
+
             output_file = os.path.join(output_dir, f"phylop_{sub_trees[side].root.name}.out")
             phylop_scores = run_phylop_linux(tree_file, msa_file, output_file, \
-                    sub_tree=sub_trees[side].root.name, mode="CONACC", method="SCORE", read_output=True)
+                    sub_tree=sub_trees[side].root.name, mode="CONACC", method=phylop_score, read_output=True)
             best_score = aggregate_scores(phylop_scores)
             best_subtree = sub_trees[side]
 #            print("best_score=", best_score)
@@ -459,7 +467,6 @@ def find_best_rate_split_in_tree(tree_file, msa_file, output_dir, method="binary
                 sys.exit("Wrong format for best score!! ")
 
 
-
             # Now run recursively:
             found_better_score = True
             while best_subtree.count_terminals() > 1 and found_better_score:  # Recursive splitting
@@ -467,28 +474,65 @@ def find_best_rate_split_in_tree(tree_file, msa_file, output_dir, method="binary
                 cur_sub_trees = split_tree_at_root(best_subtree)
                 for t in range(2):  # loop on two subtrees
                     cur_phylop_scores = run_phylop_linux(tree_file, msa_file, output_file, \
-                                                         sub_tree=cur_sub_trees[t].root.name, mode="CONACC", method="SCORE", read_output=True)
+                                                         sub_tree=cur_sub_trees[t].root.name, mode="CONACC", method=phylop_score, read_output=True)
                     cur_score = aggregate_scores(cur_phylop_scores)
                     print("cur_score=", cur_score)
 #                    print("best_score_still=", best_score)
-                    print("cur_score, best_score_types=", type(cur_score), type(best_score))
-                    print("cur_phylop_score, best_phylop_score_types=", type(cur_phylop_scores), type(phylop_scores))
+#                    print("cur_score, best_score_types=", type(cur_score), type(best_score))
+#                    print("cur_phylop_score, best_phylop_score_types=", type(cur_phylop_scores), type(phylop_scores))
 
                     if cur_score > best_score:  # choose the best
-                        print("Found better!!")
                         best_score = cur_score
                         best_subtree = cur_sub_trees[t]
                         found_better_score = True
+                        print("Found better score (binary) !!!", best_score, ' and tree: ', best_subtree)
 
             if side == 0:
                 side_best_score = best_score
                 side_best_subtree = best_subtree
             else:  # last side, compare and return
                 if best_score > side_best_score:
-                    return best_subtree, best_score
+                    return best_subtree, best_score, filtered_columns
                 else:
-                    return side_best_subtree, side_best_score
+                    return side_best_subtree, side_best_score, filtered_columns
 
 
 def file_name_to_unix(f):
     return f.replace('/mnt/g', 'G:').replace("/", chr(92))
+
+
+
+
+def subtree_to_branch_rates(tree, subtree_root_name, subtree_rate=2.0, default_rate=1.0):
+    """
+    Assigns branch rates based on a specified subtree root.
+
+    Parameters:
+    - tree: A Bio.Phylo tree object.
+    - subtree_root_name: Name of the node where the subtree starts.
+    - subtree_rate: Rate for branches within the subtree.
+    - default_rate: Rate for branches outside the subtree.
+
+    Returns:
+    - branch_rates: A dictionary with branch names as keys and rates as values.
+    """
+    branch_rates = {}
+
+    # Find the subtree root node
+    subtree_root = None
+    for clade in tree.find_clades():
+        if clade.name == subtree_root_name:
+            subtree_root = clade
+            break
+
+    if subtree_root is None:
+        raise ValueError(f"No node with name '{subtree_root_name}' found in the tree.")
+
+    # Assign rates: subtree branches get subtree_rate, others get default_rate
+    for clade in tree.find_clades():
+        if subtree_root.is_parent_of(clade) or clade == subtree_root:
+            branch_rates[clade.name] = subtree_rate
+        else:
+            branch_rates[clade.name] = default_rate
+
+    return branch_rates

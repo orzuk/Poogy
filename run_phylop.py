@@ -37,6 +37,7 @@ run_phylop = args.run_mode == "run_phylop"
 run_phylop_best_split = args.run_mode == "run_phylop_best_split"
 run_phylop_recursive = args.run_mode == "plot_phylop_recursive"
 parse_msa = args.run_mode == "parse_msa"
+simulate_msa = args.run_mode == "simulate_msa"
 help_mode = (args.run_mode == "help") or args.h
 alignment = args.alignment # "multiz470" # "multiz470"  # multiz30
 
@@ -163,7 +164,7 @@ if run_phylop_best_split:  # find automatically the best split into two compleme
         use_msa_file = msa_file
     output_file = output_dir + "/" + phylop_str + "/" + element_str + "_split_tree.out"
     best_subtree, best_score = fit_two_subtree_rates(pruned_tree_file, use_msa_file, output_file,
-                                                                   plot_tree=True, method="brute-force")
+                                                     plot_tree=True, method="brute-force", phylop_score="LRT")
     print("Found best rate split brute-force: ", best_subtree.root.name, best_score)
     best_subtree_binary, best_score_binary = fit_two_subtree_rates(pruned_tree_file, use_msa_file, output_file,
                                                                    plot_tree=True, method="binary")
@@ -192,6 +193,27 @@ if parse_msa:  # read and extract sub-alignment
     color_tree(tree30, values=values_dict,
                output_file=data_dir + "/output/trees/output_tree_no_msa_new_filtered.png")
 
+
+if simulate_msa:
+    # Example usage
+#    mod_file = "example.mod"  # Path to the model file
+    alignment_length = 100  # Length of the alignment
+    output_prefix = "simulated_alignment"
+    branch_rates = subtree_to_branch_rates(tree, 'hg38-rheMac8', subtree_rate=2.0, default_rate=1.0)  # acceleration
+
+
+    simulate_alignment_iqtree(tree_file, alignment_length, branch_rates, output_prefix=output_prefix)
+
+    # Example usage
+#    tree_file = "example_tree.nwk"  # Path to the Newick tree file
+#    alignment_length = 1000  # Length of the alignment
+#    rates = [0.1, 0.2, 0.3, 0.1, 0.5]  # Example rates for each branch
+#    rate_matrix = np.array([
+#        [0.0, 0.2, 0.3, 0.5],
+#        [0.1, 0.0, 0.4, 0.5],
+#        [0.2, 0.3, 0.0, 0.5],
+#        [0.3, 0.3, 0.4, 0.0]
+#    ])  # Example 4x4 rate matrix for GTR
 
 
 ################################################################
