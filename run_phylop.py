@@ -20,10 +20,13 @@ parser = argparse.ArgumentParser(description="Run tree rate splitting with optio
 parser.add_argument('--alignment', type=str, default='multiz470', help='Path to the tree file')
 parser.add_argument('--k', type=int, default=10, help='Kmer length')
 parser.add_argument('--run_mode', type=str, default='plot_trees', help='Mode to run the script')  # Here decide what to do
+parser.add_argument('--msa_file', type=str, default='', help='Alignment File')  # Here decide what to do
+parser.add_argument('--tree_file', type=str, default='', help='Model file with phylogenetic tree')  # Here decide what to do
 parser.add_argument('--pos', type=str, default='', help='Genomic coordinates')  # Here decide what to do
 parser.add_argument('--verbose', action='store_true', help='Enable verbose mode')  # Example for boolean operation
 parser.add_argument('--h', dest='h', action='store_true', help='help')  # Example for boolean operation
 parser.add_argument('--no-h', dest='h', action='store_false', help="A boolean flag that is False if provided.")
+
 
 
 # Parse the command-line arguments
@@ -39,7 +42,11 @@ run_phylop_recursive = args.run_mode == "plot_phylop_recursive"
 parse_msa = args.run_mode == "parse_msa"
 simulate_msa = args.run_mode == "simulate_msa"
 help_mode = (args.run_mode == "help") or args.h
-alignment = args.alignment # "multiz470" # "multiz470"  # multiz30
+alignment = args.alignment  # "multiz470" # "multiz470"  # multiz30
+try:
+    alignment_length = args.k  # Length of the alignment
+except ValueError:
+    alignment_length = 100  # Length of the alignment
 
 if help_mode:
     print("Usage: python3 run_phylop --alignemt=<alignment-file>, --k=<kmer-length> --run_mode=<operation-to-run>")
@@ -83,6 +90,15 @@ else:
     start_pos, end_pos = 47, 82  # do not extract sub-alignment  # 12-mer
 if args.pos != "":  # extract positions from input (override defaults)
     start_pos, end_pos = [int(s) for s in args.pos.split("-")]
+
+msa_sim_output_file = "sim/simulated_alignment.maf"
+if args.msa_file != "":    # override alignment stuff
+    msa_file = args.msa_file
+    msa_sim_output_file = msa_file
+    start_pos, end_pos = None, None  # don't allow start/end pos for now
+if args.tree_file != "":
+    tree_file = args.tree_file
+    start_pos, end_pos = None, None
 
 
 if start_pos is None:
@@ -130,7 +146,12 @@ if plot_trees:
 
     values_dict = dict(zip(tree.get_terminals() + tree.get_nonterminals(),
                            np.random.random(len(tree.get_terminals()) + len(tree.get_nonterminals()))))
-    color_tree(tree, values=values_dict, output_file=data_dir + "/output/trees/output_tree_hg38_randcolors.png")
+    values_dict2 = dict(zip(tree.get_terminals() + tree.get_nonterminals(),
+                           np.random.random(len(tree.get_terminals()) + len(tree.get_nonterminals()))))
+
+color_tree(tree, values=values_dict, output_file=data_dir + "/output/trees/output_tree_hg38_1st_randcolors.png")
+color_tree(tree, values=values_dict2, output_file=data_dir + "/output/trees/output_tree_hg38_2nd_randcolors.png")
+color_tree(tree, values=[values_dict, values_dict2], output_file=data_dir + "/output/trees/output_tree_hg38_BOTH_randcolors.png")
 
 
 if run_phylop:  # just run on a simple split of the tree into two
@@ -197,12 +218,9 @@ if parse_msa:  # read and extract sub-alignment
 if simulate_msa:
     # Example usage
 #    mod_file = "example.mod"  # Path to the model file
-    alignment_length = 100  # Length of the alignment
-    output_prefix = "simulated_alignment"
     branch_rates = subtree_to_branch_rates(tree, 'hg38-rheMac8', subtree_rate=2.0, default_rate=1.0)  # acceleration
 
-
-    simulate_alignment_iqtree(tree_file, alignment_length, branch_rates, output_prefix=output_prefix)
+    simulate_alignment_iqtree(tree_file, alignment_length, branch_rates, output_prefix=msa_sim_output_file[:-4]) # remove suffix
 
     # Example usage
 #    tree_file = "example_tree.nwk"  # Path to the Newick tree file

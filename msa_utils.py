@@ -9,6 +9,48 @@ import subprocess
 
 from phylo_utils import *
 from subst_models import *
+import os
+
+
+def convert_phylip_to_maf(phylip_file, maf_file, ref_species="hg38", start_position=0):
+    """
+    Convert a PHYLIP alignment file to MAF format for phyloP.
+
+    Parameters:
+    - phylip_file: Path to the input PHYLIP file.
+    - maf_file: Path to the output MAF file.
+    - ref_species: Name of the reference species in the alignment (optional).
+    - start_position: Starting position for each sequence (default is 0).
+
+    Output:
+    - MAF file written to `maf_file`.
+    """
+    # Read the PHYLIP alignment
+    alignment = AlignIO.read(phylip_file, "phylip")
+
+    with open(maf_file, "w") as maf_out:
+        # Write MAF header
+        maf_out.write("##maf version=1 scoring=none\n\n")
+
+        # Define alignment block
+        maf_out.write("a score=0.0\n")
+
+        # Convert each sequence to MAF format
+        for record in alignment:
+            species = record.id
+            sequence = str(record.seq)
+            size = len(sequence.replace("-", ""))  # number of aligned (non-gap) bases
+
+            # Example strand and chromosome placeholders; adjust as needed
+            strand = "+"
+            chromosome = f"chr1"  # Adjust to your specific chromosome if known
+
+            # Reference start position is used for all sequences; could vary by species if known
+            maf_out.write(
+                f"s {species}.{chromosome:<15} {start_position:<10} {size:<10} {strand} {start_position + size:<10} {sequence}\n")
+
+        maf_out.write("\n")  # Blank line after block
+
 
 
 def filter_msa_by_species(msa, include_species):
@@ -159,7 +201,7 @@ def filter_and_concatenate_alignment(msa_file, subtree_species, output_file=None
     sequence_sizes = {}
     src_sizes = {}
 
-    print("filtering subtree-species=", subtree_species)
+#    print("filtering subtree-species=", subtree_species)
     # Process each alignment block
     for block in msa_blocks:
         alignment_length = block.get_alignment_length()
@@ -210,7 +252,8 @@ def filter_and_concatenate_alignment(msa_file, subtree_species, output_file=None
     AlignIO.write(concatenated_alignment, output_file, "maf")
 
 #    print(f"Filtered concatenated alignment saved to {output_file}")
-    return good_positions
+    bad_positions = list(set(range(1, alignment_length+1)) - set(good_positions))
+    return good_positions, bad_positions
 
 
 
@@ -257,7 +300,7 @@ def parse_mode_file(mod_file):
 
     with open(mod_file, 'r') as file:
         for line in file:
-            print("read line: ", line)
+#            print("read line: ", line)
             # Check if we've reached the RATE_MAT section
             if "RATE_MAT" in line:
                 rate_matrix_section = True
@@ -338,7 +381,7 @@ def simulate_alignment_iqtree(mod_file, alignment_length, branch_rates, output_p
     save_gtr_model(rev_rates, rev_freqs, mod_file.replace('.mod', '_iqtree.mod'))
 
     # Run IQ-TREE simulation with tree, rate matrix, and branch rates
-    output_file = f"{output_prefix}.fas"
+    output_file = f"{output_prefix}.phy"
     iqtree_cmd = [
         "/mnt/c/Code/IQTree/iqtree-2.3.6-Linux-intel/bin/iqtree2",  # Update this path if necessary
         "--alisim", output_prefix,
@@ -368,6 +411,10 @@ def simulate_alignment_iqtree(mod_file, alignment_length, branch_rates, output_p
         os.remove(matrix_file.name)
         os.remove(branch_rates_file.name)
 
+    # Convert to .maf file:
+#    phylip_file = "alignment.phy"  # Input PHYLIP file from IQ-TREE
+    convert_phylip_to_maf(output_file, output_file.replace('.phy', '.maf'))
+#    print(f"Converted MAF file saved to {maf_file}")
 
     return output_file
 

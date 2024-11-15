@@ -426,14 +426,14 @@ def find_best_rate_split_in_tree(tree_file, msa_file, output_dir, method="binary
 #            print("output dir: ", output_dir)
             output_file = os.path.join(output_dir, f"phylop_{subtree_name}.out")
 
-            filtered_columns = filter_and_concatenate_alignment(msa_file, tree_to_species_names(get_induced_subtree(tree, subtree_name)))
+            kept_columns, filtered_columns = filter_and_concatenate_alignment(msa_file, tree_to_species_names(get_induced_subtree(tree, subtree_name)))
             print("Filtered columns: ", filtered_columns)
 
 #            print("Run phylop outputfile=", output_file)
             # Run PhyloP for the current subtree (species or subtree)
             phylop_scores = run_phylop_linux(tree_file, msa_file.replace('.maf', '_filtered.maf'), output_file, \
                                              sub_tree=subtree_name, mode="CONACC", method=phylop_score, read_output=True)
-            print("Finished phylop outputfile=", output_file)
+#            print("Finished phylop outputfile=", output_file)
             # Process the PhyloP output and calculate the score difference
             cur_score = aggregate_scores(phylop_scores)
             print("cur_score=", cur_score, ' best_score=', best_score)
@@ -442,16 +442,18 @@ def find_best_rate_split_in_tree(tree_file, msa_file, output_dir, method="binary
             if cur_score > best_score:
                 best_score = cur_score
                 best_subtree = subtree_name
-                print("Found better score !!!", best_score, ' and tree: ', best_subtree)
+                print("best subtree: ", best_subtree)
+                print("Best subtree name:", best_score.name)
+                print("Found better score !!!", best_score, ' and tree: ', best_subtree if isinstance(best_subtree, str) else best_subtree.name)
 
-        return best_subtree, best_score, filtered_columns
+        return best_subtree, best_score, kept_columns
 
     if method == "binary":  # split tree binary each time
         sub_trees = split_tree_at_root(tree)
 
         for side in range(2):  # try splitting both sides
 
-            filtered_columns = filter_and_concatenate_alignment(msa_file, tree_to_species_names(get_induced_subtree(tree, sub_trees[side].root.name)))
+            filtered_columns, kept_columns = filter_and_concatenate_alignment(msa_file, tree_to_species_names(get_induced_subtree(tree, sub_trees[side].root.name)))
             print("Filtered columns: ", filtered_columns)
 
             output_file = os.path.join(output_dir, f"phylop_{sub_trees[side].root.name}.out")
@@ -492,9 +494,9 @@ def find_best_rate_split_in_tree(tree_file, msa_file, output_dir, method="binary
                 side_best_subtree = best_subtree
             else:  # last side, compare and return
                 if best_score > side_best_score:
-                    return best_subtree, best_score, filtered_columns
+                    return best_subtree, best_score, kept_columns
                 else:
-                    return side_best_subtree, side_best_score, filtered_columns
+                    return side_best_subtree, side_best_score, kept_columns
 
 
 def file_name_to_unix(f):
