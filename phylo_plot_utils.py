@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 from matplotlib import cm, colors
 import numpy as np
 from msa_utils import *
+from utils import *
 from matplotlib import gridspec
 import matplotlib.patches as patches
 import matplotlib.gridspec as gridspec
@@ -69,12 +70,12 @@ def color_tree(tree, subtree_name=None, values=None, msa=None, scores=None, good
     - output_file: Name of file to save the figure.
     """
 
-    def draw_colored_rectangles(clade, x, y, color1, color2, width=0.02, height=0.02):
-        """Draw two adjacent rectangles on a branch."""
-        rect1 = patches.Rectangle((x, y), width / 2, height, linewidth=0, edgecolor=None, facecolor=color1)
-        rect2 = patches.Rectangle((x + width / 2, y), width / 2, height, linewidth=0, edgecolor=None, facecolor=color2)
-        ax_tree.add_patch(rect1)
-        ax_tree.add_patch(rect2)
+#    def draw_colored_rectangles(clade, x, y, color1, color2, width=0.02, height=0.02):
+#        """Draw two adjacent rectangles on a branch."""
+#        rect1 = patches.Rectangle((x, y), width / 2, height, linewidth=0, edgecolor=None, facecolor=color1)
+#        rect2 = patches.Rectangle((x + width / 2, y), width / 2, height, linewidth=0, edgecolor=None, facecolor=color2)
+#        ax_tree.add_patch(rect1)
+#        ax_tree.add_patch(rect2)
 
     def leaf_labels(clade):
         if clade.is_terminal():
@@ -152,12 +153,12 @@ def color_tree(tree, subtree_name=None, values=None, msa=None, scores=None, good
             values1 = values
 
 
-        print("all values again: ", all_values)
+#        print("all values again: ", all_values)
         # Normalize and get the colormap
         norm = colors.Normalize(vmin=np.min(all_values), vmax=np.max(all_values))
 #        norm = colors.Normalize(vmin=np.min(values_list), vmax=np.max(values_list))
         cmap = plt.get_cmap(cmap_name)
-        print("internal_positions: ", y_inter_positions)
+#        print("internal_positions: ", y_inter_positions)
 
         values_dict_simple = {k.name: values1[k] for k in values_keys}
         # Map each clade to its color based on the normalized values
@@ -203,10 +204,10 @@ def color_tree(tree, subtree_name=None, values=None, msa=None, scores=None, good
             min_y, max_y = ax_tree.get_ylim()
             ax_tree_twin.set_ylim(min_y - y_offset, max_y - y_offset)
 
-            my_phylo_draw(tree, label_func=leaf_labels, values1=values1, values2=values2, y_offset=0.3, do_show=False, axes=ax_tree)
+            values_dict_simple2 = {k.name: values2[k] for k in values_keys}
+            my_phylo_draw(tree, label_func=leaf_labels, values1=values_dict_simple, values2=values_dict_simple2, y_offset=0.08, do_show=False, axes=ax_tree)
 
 #            Phylo.draw(tree, label_func=leaf_labels, do_show=False, axes=ax_tree_twin)  # , transform=offset_transform)
-            values_dict_simple = {k.name: values2[k] for k in values_keys}
 
             # Shift the y-axis limits to create space for the second tree
 
@@ -219,12 +220,10 @@ def color_tree(tree, subtree_name=None, values=None, msa=None, scores=None, good
                     clade.color = colors.rgb2hex(branch_color)
         #            clade.y += y_offset
             tree = copy.deepcopy(offset_tree)
-            print("Draw second tree offset!! ")
+#            print("Draw second tree offset!! ")
 
     else:
         raise ValueError("Either subtree_name or values must be provided.")
-
-
 
 
     # Set the global title for the figure
@@ -675,16 +674,6 @@ def my_phylo_draw(
         *args,
         **kwargs,
 ):
-    """Plot the given tree using matplotlib with two color schemes for branch rates.
-
-    Parameters:
-        values1 : dict
-            A dictionary mapping clade names to rate values for the first color scheme.
-        values2 : dict
-            A dictionary mapping clade names to rate values for the second color scheme.
-        y_offset : float
-            Vertical offset for the second tree to separate rate vectors visually.
-    """
     import matplotlib.pyplot as plt
     import matplotlib.collections as mpcollections
     from matplotlib import colors
@@ -736,7 +725,7 @@ def my_phylo_draw(
         fig, axes = plt.subplots(figsize=(10, 8))
 
     # Function to draw a tree
-    def draw_tree(clade, x_start, values, y_adjust=0):
+    def draw_tree(clade, x_start, values, y_adjust=0, add_labels=True):
         """Recursively draw branches for a tree with given values and y-offset."""
         x_here = x_posns[clade]
         y_here = y_posns[clade] + y_adjust
@@ -745,10 +734,11 @@ def my_phylo_draw(
         # Draw horizontal branch line
         axes.plot([x_start, x_here], [y_here, y_here], color=color, lw=2)
 
-        # Add label at the branch
-        label = label_func(clade)
-        if label:
-            axes.text(x_here, y_here, f" {label}", verticalalignment="center", color=color)
+        # Add label at the branch if it's a terminal node
+        if add_labels:
+            label = label_func(clade)
+            if label and clade.is_terminal():
+                axes.text(x_here, y_here, f" {label}", verticalalignment="center", color=color)
 
         # Draw vertical line connecting children
         if clade.clades:
@@ -758,26 +748,28 @@ def my_phylo_draw(
 
             # Recursively draw each child
             for child in clade:
-                draw_tree(child, x_here, values, y_adjust)
+                draw_tree(child, x_here, values, y_adjust, add_labels)
 
     # Draw the first tree using `values1`
-    draw_tree(tree.root, 0, values1, y_adjust=0)
+    draw_tree(tree.root, 0, values1, y_adjust=0, add_labels=False)
 
     # Draw the second tree using `values2` with a slight vertical offset
     draw_tree(tree.root, 0, values2, y_adjust=-y_offset)
 
     # Color bar to represent the values scale
-    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-    sm.set_array([])
-    cbar = plt.colorbar(sm, ax=axes, orientation="horizontal", pad=0.05)
-    cbar.set_label("Rate")
+#    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+#    sm.set_array([])
+#    cbar = plt.colorbar(sm, ax=axes, orientation="horizontal", pad=0.05)
+#    cbar.set_label("Rate")
 
-    # Aesthetics
+    # Aesthetics: Adjust x-axis and y-axis limits to add padding
+    xmax = max(x_posns.values())
+    axes.set_xlim(-0.05 * xmax, 1.2 * xmax)  # Add padding to the x-axis
+#    print("Set max x limit=", 1.2 * xmax)
+
     axes.set_xlabel("Branch Length")
     axes.set_ylabel("Taxa")
     axes.set_ylim(max(y_posns.values()) + 1, min(y_posns.values()) - y_offset - 1)
-    xmax = max(x_posns.values())
-    axes.set_xlim(-0.05 * xmax, 1.05 * xmax)
 
     if do_show:
         plt.show()

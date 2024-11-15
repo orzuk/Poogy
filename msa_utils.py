@@ -7,6 +7,7 @@ from Bio.SeqRecord import SeqRecord
 import tempfile
 import subprocess
 
+from utils import *
 from phylo_utils import *
 from subst_models import *
 import os
@@ -402,7 +403,7 @@ def simulate_alignment_iqtree(mod_file, alignment_length, branch_rates, output_p
 #        "--ratefile", branch_rates_file.name
 #    ]
 
-    print("Running simulation command:", iqtree_cmd)
+    print("mod_file=", mod_file, " ; Running simulation command: ",iqtree_cmd)
     try:
         subprocess.run(iqtree_cmd, check=True)
         print(f"Simulated alignment saved to {output_file}")
@@ -415,6 +416,8 @@ def simulate_alignment_iqtree(mod_file, alignment_length, branch_rates, output_p
 #    phylip_file = "alignment.phy"  # Input PHYLIP file from IQ-TREE
     convert_phylip_to_maf(output_file, output_file.replace('.phy', '.maf'))
 #    print(f"Converted MAF file saved to {maf_file}")
+    # write also rates:
+    write_dict_to_file(branch_rates, mod_file.replace('.mod', '_branch_rates.txt'))
 
     return output_file
 

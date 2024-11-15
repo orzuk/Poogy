@@ -2,6 +2,7 @@
 # from phasty import *
 import subprocess
 from phylo_plot_utils import *
+from utils import *
 # import numpy as np
 import os
 import copy
@@ -353,7 +354,7 @@ def fit_tree_rates(tree_file, msa_file, output_file, fdr_alpha = 0.1,  phylop_sc
 
 
 # New: split tree into two subtree with different rates and output trees and rates
-def fit_two_subtree_rates(tree_file, msa_file, output_file, phylop_score="SCORE", mode="CONACC", method="brute-force", plot_tree=False):
+def fit_two_subtree_rates(tree_file, msa_file, output_file, phylop_score="SCORE", mode="CONACC", method="brute-force", true_branch_rates=None,  plot_tree=False):
     tree = Phylo.read(tree_file, "newick")
     root = tree.root
     children = root.clades  # Get the two child clades (subtrees)
@@ -393,6 +394,9 @@ def fit_two_subtree_rates(tree_file, msa_file, output_file, phylop_score="SCORE"
 
 #        print("final_phylop_scores= ", final_phylop_scores)
 #        print("final_phylop_scores['scale']=", [s['scale'] for s in final_phylop_scores] )
+
+        if true_branch_rates is not None:
+            subtree_rates = [subtree_rates, true_branch_rates]  # plot side by side !!!
         color_tree(tree, values=subtree_rates, cmap_name='coolwarm', msa=msa_file, scores=[s['scale'] for s in final_phylop_scores], # color tree with msa !!
                    split_score=best_score, good_positions=good_positions, output_file=output_plot_tree_file)
 
@@ -443,7 +447,7 @@ def find_best_rate_split_in_tree(tree_file, msa_file, output_dir, method="binary
                 best_score = cur_score
                 best_subtree = subtree_name
                 print("best subtree: ", best_subtree)
-                print("Best subtree name:", best_score.name)
+#                print("Best subtree name:", best_subtree.name)
                 print("Found better score !!!", best_score, ' and tree: ', best_subtree if isinstance(best_subtree, str) else best_subtree.name)
 
         return best_subtree, best_score, kept_columns
@@ -499,8 +503,6 @@ def find_best_rate_split_in_tree(tree_file, msa_file, output_dir, method="binary
                     return side_best_subtree, side_best_score, kept_columns
 
 
-def file_name_to_unix(f):
-    return f.replace('/mnt/g', 'G:').replace("/", chr(92))
 
 
 
